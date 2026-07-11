@@ -1,101 +1,134 @@
+import { createHash } from "node:crypto";
 import type {
   FeedEvent,
   Market,
+  OracleReading,
   PricePoint,
   Side,
-  TelemetryReading,
   TradeRecord,
   UserAccount,
 } from "@/lib/market/types";
-import { priceYes, seedForPrice, sharesForSpend, proceedsForSale } from "@/lib/market/lmsr";
+import { priceYes, seedForPrice, sharesForSpend, proceedsForSale, costForShares } from "@/lib/market/lmsr";
 
 export const CONFIG = {
-  b: 100,
-  startingCredits: 1000,
-  creditsPerSol: 10_000, // 0.01 SOL deposit = 100 credits
+  b: 250_000, // deep enough that a $50K hedge moves ~12% -> ~14%, per the demo script
+  startingBalanceUsd: 100_000,
+  botBalanceUsd: 2_000_000,
+  usdPerSol: 10_000, // devnet SOL deposit rate (play money)
   treasury: process.env.TREASURY_ADDRESS ?? "7Jt3LzUUf1MfAbmiaUteNpEjqP5f52qDYbB7cBYDmKD5",
-  tickMs: 2000,
-  // demo-compressed settlement thresholds
-  sloDowntimeBudgetTicks: 8, // checkout SLO breaches after this much accumulated downtime; kept below the min incident duration so one Sev-1 always breaches
-  sev1Limit: 2, // market settles NO on the 3rd Sev-1
-  latencyBreachStreak: 5, // consecutive p99>300ms readings to settle NO
+  hedgeFeePct: 0.01,
+  simTickMs: 2000,
+  realTickMs: 15_000,
+  // demo market: simulated error-rate breach threshold, in consecutive readings
+  simBreachTicks: 8,
+  // openai weekly availability trigger
+  openaiSloPct: 99.5,
+  openaiMinReadings: 60,
+  // stripe cumulative downtime trigger (readings at ~15s cadence; 120 ≈ 30 min)
+  stripeDownReadings: 120,
 } as const;
 
 export interface AppState {
   users: Map<string, UserAccount>;
   markets: Map<string, Market>;
   priceHistory: Map<string, PricePoint[]>;
-  telemetry: Map<string, TelemetryReading[]>;
-  downtimeTicks: Map<string, number>;
-  latencyStreak: number;
-  sev1Count: number;
-  activeIncidents: Map<string, number>; // service -> remaining ticks
+  oracleChain: OracleReading[];
+  lastByService: Map<string, OracleReading>;
+  downReadings: Map<string, number>; // per service, cumulative "not ok" real readings
+  upReadings: Map<string, number>;
+  simIncidentTicks: number; // remaining ticks of the injected demo incident
+  simConsecutiveDown: number;
   trades: TradeRecord[];
   events: FeedEvent[];
   seq: number;
-  loopStarted: boolean;
 }
-
-export const SERVICES = ["checkout-service", "payments-db", "api-gateway"] as const;
 
 const SEEDS: Array<{
   id: string;
   ticker: string;
   question: string;
   service: string;
+  source: Market["source"];
+  sourceName: string;
+  sourceUrl: string;
+  trigger: string;
   settlement: Market["settlement"];
-  rule: string;
   p0: number;
   closesLabel: string;
 }> = [
   {
-    id: "slo-checkout",
-    ticker: "SLO999",
-    question: "checkout-service meets its 99.9% SLO this week",
-    service: "checkout-service",
+    id: "aws-use1",
+    ticker: "AWSJUL",
+    question: "AWS us-east-1 major outage in July",
+    service: "aws-us-east-1",
+    source: "aws-feed",
+    sourceName: "AWS Health status feed",
+    sourceUrl: "https://health.aws.amazon.com/health/status",
+    trigger: "Settles YES the moment the public AWS Health feed shows an active event touching us-east-1. Settles NO if July ends clean.",
     settlement: "auto",
-    rule: `Settles NO the moment accumulated downtime exceeds the weekly error budget (${CONFIG.sloDowntimeBudgetTicks} unhealthy readings in demo time). Settles YES if the window closes with budget remaining. Source: uptime telemetry oracle.`,
-    p0: 0.72,
-    closesLabel: "FRI 17:00",
+    p0: 0.12,
+    closesLabel: "JUL 31",
   },
   {
-    id: "sev1-cap",
-    ticker: "SEV1X2",
-    question: "2 or fewer Sev-1 incidents across all services this week",
-    service: "incidents",
+    id: "stripe-30m",
+    ticker: "STRP30",
+    question: "Stripe API down more than 30 minutes this week",
+    service: "stripe-api",
+    source: "stripe-monitor",
+    sourceName: "Cumulus synthetic monitor",
+    sourceUrl: "https://status.stripe.com",
+    trigger: "Cumulus pings api.stripe.com every 15s. Settles YES when cumulative failed checks exceed 30 minutes in the week. Settles NO at week close.",
     settlement: "auto",
-    rule: "Settles NO immediately on the third Sev-1 incident. Settles YES if the week closes with 2 or fewer. Source: incident counter fed by the telemetry oracle.",
-    p0: 0.64,
-    closesLabel: "FRI 17:00",
+    p0: 0.07,
+    closesLabel: "SUN 23:59",
   },
   {
-    id: "db-migration",
-    ticker: "SHIPFRI",
-    question: "payments-db migration completes by Friday",
-    service: "payments-db",
-    settlement: "manual",
-    rule: "Settled manually by the admin when the migration lands (or Friday 17:00 passes). The one market here a machine can't read yet.",
-    p0: 0.41,
-    closesLabel: "FRI 17:00",
-  },
-  {
-    id: "gw-latency",
-    ticker: "P99LT300",
-    question: "api-gateway p99 latency stays under 300ms today",
-    service: "api-gateway",
+    id: "cf-incident",
+    ticker: "CFTODAY",
+    question: "Cloudflare major incident today",
+    service: "cloudflare-net",
+    source: "cloudflare-feed",
+    sourceName: "Cloudflare status feed",
+    sourceUrl: "https://www.cloudflarestatus.com",
+    trigger: "Settles YES when cloudflarestatus.com reports a major or critical indicator today. Settles NO at midnight UTC.",
     settlement: "auto",
-    rule: `Settles NO after ${CONFIG.latencyBreachStreak} consecutive p99 readings above 300ms. Settles YES at end of day otherwise. Source: latency telemetry oracle.`,
-    p0: 0.85,
+    p0: 0.09,
     closesLabel: "TODAY 23:59",
+  },
+  {
+    id: "openai-slo",
+    ticker: "OAI995",
+    question: "OpenAI API availability below 99.5% this week",
+    service: "openai-api",
+    source: "openai-monitor",
+    sourceName: "Cumulus synthetic monitor",
+    sourceUrl: "https://status.openai.com",
+    trigger: "Cumulus pings api.openai.com every 15s. Settles YES when weekly measured availability drops below 99.5% (min 60 readings). Settles NO at week close.",
+    settlement: "auto",
+    p0: 0.18,
+    closesLabel: "SUN 23:59",
+  },
+  {
+    id: "demo-checkout",
+    ticker: "CHKOUT",
+    question: "DEMO: checkout-service outage in the next hour",
+    service: "checkout-service",
+    source: "simulator",
+    sourceName: "Simulated telemetry (stage safety net)",
+    sourceUrl: "/oracle",
+    trigger: "Simulated service. The ops console injects an incident; the oracle settles YES after 8 consecutive failing readings. The guaranteed on-stage settlement moment.",
+    settlement: "auto",
+    p0: 0.1,
+    closesLabel: "+60 MIN",
   },
 ];
 
-const BOTS = ["sre-alice", "oncall-bob", "platform-carol", "intern-dave"];
+const BOTS = ["meridian-re", "atlas-capital", "helvetia-mm", "crestline-lp"];
 
 function makeUser(name: string, isBot = false): UserAccount {
   return {
     name,
-    credits: CONFIG.startingCredits,
+    balanceUsd: isBot ? CONFIG.botBalanceUsd : CONFIG.startingBalanceUsd,
     positions: {},
     usedSignatures: [],
     wallet: null,
@@ -109,27 +142,30 @@ function seedState(): AppState {
     users: new Map(),
     markets: new Map(),
     priceHistory: new Map(),
-    telemetry: new Map(),
-    downtimeTicks: new Map(),
-    latencyStreak: 0,
-    sev1Count: 0,
-    activeIncidents: new Map(),
+    oracleChain: [],
+    lastByService: new Map(),
+    downReadings: new Map(),
+    upReadings: new Map(),
+    simIncidentTicks: 0,
+    simConsecutiveDown: 0,
     trades: [],
     events: [],
     seq: 0,
-    loopStarted: false,
   };
 
   const now = Date.now();
   for (const seed of SEEDS) {
     const { qYes, qNo } = seedForPrice(seed.p0, CONFIG.b);
-    const m: Market = {
+    s.markets.set(seed.id, {
       id: seed.id,
       ticker: seed.ticker,
       question: seed.question,
       service: seed.service,
+      source: seed.source,
+      sourceName: seed.sourceName,
+      sourceUrl: seed.sourceUrl,
+      trigger: seed.trigger,
       settlement: seed.settlement,
-      rule: seed.rule,
       status: "open",
       outcome: null,
       settledTs: null,
@@ -139,28 +175,23 @@ function seedState(): AppState {
       b: CONFIG.b,
       createdTs: now,
       closesLabel: seed.closesLabel,
-      volumeCredits: 0,
-    };
-    s.markets.set(m.id, m);
-    s.priceHistory.set(m.id, [{ ts: now, p: seed.p0 }]);
-  }
-
-  for (const svc of SERVICES) {
-    s.telemetry.set(svc, []);
-    s.downtimeTicks.set(svc, 0);
+      volumeUsd: 0,
+    });
+    s.priceHistory.set(seed.id, [{ ts: now, p: seed.p0 }]);
   }
 
   for (const b of BOTS) s.users.set(b, makeUser(b, true));
 
-  // a little pre-existing bot flow so the tape, charts and leaderboard aren't empty
-  for (let i = 0; i < 10; i++) {
-    const market = [...s.markets.values()][i % s.markets.size];
+  // pre-existing market-maker flow: LPs write protection (buy NO), a couple take YES
+  const ids = [...s.markets.keys()];
+  for (let i = 0; i < 14; i++) {
+    const marketId = ids[i % ids.length];
     const bot = BOTS[i % BOTS.length];
-    const side: Side = i % 3 === 0 ? "NO" : "YES";
-    executeTrade(s, bot, market.id, side, "buy", 20 + (i % 4) * 15, now - (10 - i) * 45_000);
+    const side: Side = i % 4 === 0 ? "YES" : "NO";
+    executeTrade(s, bot, marketId, side, "buy", 2_000 + (i % 5) * 3_000, now - (14 - i) * 40_000);
   }
 
-  pushEvent(s, "system", "Uptime Market open. Four markets live. Telemetry oracle armed.");
+  pushEvent(s, "system", "Cumulus open: five downtime contracts live. Oracle armed on real feeds + synthetic monitors.");
   return s;
 }
 
@@ -169,15 +200,34 @@ export function pushEvent(s: AppState, kind: FeedEvent["kind"], text: string, ma
   if (s.events.length > 80) s.events.pop();
 }
 
+export function appendReading(
+  s: AppState,
+  r: Omit<OracleReading, "hash" | "prevHash">
+): OracleReading {
+  const prevHash = s.oracleChain[0]?.hash ?? "genesis";
+  const hash = createHash("sha256")
+    .update(JSON.stringify({ ...r, prevHash }))
+    .digest("hex");
+  const reading: OracleReading = { ...r, hash, prevHash };
+  s.oracleChain.unshift(reading);
+  if (s.oracleChain.length > 600) s.oracleChain.pop();
+  s.lastByService.set(r.service, reading);
+  return reading;
+}
+
 export function getOrCreateUser(s: AppState, name: string): UserAccount {
   const key = name.trim().slice(0, 24);
   let u = s.users.get(key);
   if (!u) {
     u = makeUser(key);
     s.users.set(key, u);
-    pushEvent(s, "system", `${key} joined with ${CONFIG.startingCredits} credits`);
+    pushEvent(s, "system", `${key} joined with $${CONFIG.startingBalanceUsd.toLocaleString()} (play)`);
   }
   return u;
+}
+
+function ensurePosition(u: UserAccount, marketId: string) {
+  return (u.positions[marketId] ??= { yes: 0, no: 0, premiumPaid: 0, premiumEarned: 0 });
 }
 
 export function executeTrade(
@@ -186,7 +236,7 @@ export function executeTrade(
   marketId: string,
   side: Side,
   action: "buy" | "sell",
-  amount: number, // credits for buy, shares for sell
+  amountUsd: number, // buy: dollars to spend; sell: shares to sell
   ts = Date.now()
 ): { ok: true; trade: TradeRecord } | { ok: false; error: string } {
   const m = s.markets.get(marketId);
@@ -194,31 +244,34 @@ export function executeTrade(
   if (!m) return { ok: false, error: "unknown market" };
   if (!u) return { ok: false, error: "unknown user" };
   if (m.status !== "open") return { ok: false, error: "market is settled" };
-  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "invalid amount" };
+  if (!Number.isFinite(amountUsd) || amountUsd <= 0) return { ok: false, error: "invalid amount" };
 
-  const pos = (u.positions[marketId] ??= { yes: 0, no: 0 });
-  let credits = 0;
+  const pos = ensurePosition(u, marketId);
+  let usd = 0;
   let shares = 0;
 
   if (action === "buy") {
-    credits = Math.min(amount, u.credits);
-    if (credits < 0.01) return { ok: false, error: "insufficient credits" };
-    shares = sharesForSpend(m.qYes, m.qNo, m.b, side, credits);
+    usd = Math.min(amountUsd, u.balanceUsd);
+    if (usd < 0.01) return { ok: false, error: "insufficient balance" };
+    shares = sharesForSpend(m.qYes, m.qNo, m.b, side, usd);
     if (shares <= 0) return { ok: false, error: "trade too small" };
-    u.credits -= credits;
+    u.balanceUsd -= usd;
     if (side === "YES") {
       m.qYes += shares;
       pos.yes += shares;
+      pos.premiumPaid += usd;
     } else {
+      // writing protection: cost equals full collateral minus premium earned
       m.qNo += shares;
       pos.no += shares;
+      pos.premiumEarned += Math.max(0, shares - usd);
     }
   } else {
     const held = side === "YES" ? pos.yes : pos.no;
-    shares = Math.min(amount, held);
+    shares = Math.min(amountUsd, held);
     if (shares <= 0) return { ok: false, error: "no position to sell" };
-    credits = proceedsForSale(m.qYes, m.qNo, m.b, side, shares);
-    u.credits += credits;
+    usd = proceedsForSale(m.qYes, m.qNo, m.b, side, shares);
+    u.balanceUsd += usd;
     if (side === "YES") {
       m.qYes -= shares;
       pos.yes -= shares;
@@ -228,7 +281,7 @@ export function executeTrade(
     }
   }
 
-  m.volumeCredits += credits;
+  m.volumeUsd += usd;
   const p = priceYes(m.qYes, m.qNo, m.b);
   const hist = s.priceHistory.get(marketId)!;
   hist.push({ ts, p });
@@ -241,19 +294,72 @@ export function executeTrade(
     marketId,
     side,
     action,
-    credits: Math.round(credits * 100) / 100,
+    usd: Math.round(usd * 100) / 100,
     shares: Math.round(shares * 100) / 100,
+    priceAfter: p,
+  };
+  s.trades.unshift(trade);
+  if (s.trades.length > 200) s.trades.pop();
+  if (!u.isBot || Math.abs(usd) > 500) {
+    pushEvent(
+      s,
+      "trade",
+      `${userName} ${action === "buy" ? "bought" : "sold"} $${Math.round(shares).toLocaleString()} ${side} on ${m.ticker} → ${(p * 100).toFixed(1)}%`,
+      marketId
+    );
+  }
+  return { ok: true, trade };
+}
+
+// Insurance costume over the same trade: coverage dollars = YES shares.
+export function executeHedge(
+  s: AppState,
+  userName: string,
+  marketId: string,
+  coverage: number
+): { ok: true; premium: number; rate: number; priceAfter: number } | { ok: false; error: string } {
+  const m = s.markets.get(marketId);
+  const u = s.users.get(userName);
+  if (!m) return { ok: false, error: "unknown market" };
+  if (!u) return { ok: false, error: "unknown user" };
+  if (m.status !== "open") return { ok: false, error: "market is settled" };
+  if (!Number.isFinite(coverage) || coverage < 100) return { ok: false, error: "minimum coverage is $100" };
+
+  const base = costForShares(m.qYes, m.qNo, m.b, "YES", coverage);
+  const premium = base * (1 + CONFIG.hedgeFeePct);
+  if (premium > u.balanceUsd) return { ok: false, error: "insufficient balance for premium" };
+
+  u.balanceUsd -= premium;
+  m.qYes += coverage;
+  const pos = ensurePosition(u, marketId);
+  pos.yes += coverage;
+  pos.premiumPaid += premium;
+  m.volumeUsd += premium;
+
+  const p = priceYes(m.qYes, m.qNo, m.b);
+  const hist = s.priceHistory.get(marketId)!;
+  hist.push({ ts: Date.now(), p });
+
+  const trade: TradeRecord = {
+    id: `t${s.seq++}`,
+    ts: Date.now(),
+    user: userName,
+    marketId,
+    side: "YES",
+    action: "buy",
+    usd: Math.round(premium * 100) / 100,
+    shares: Math.round(coverage * 100) / 100,
     priceAfter: p,
   };
   s.trades.unshift(trade);
   if (s.trades.length > 200) s.trades.pop();
   pushEvent(
     s,
-    "trade",
-    `${userName} ${action === "buy" ? "bought" : "sold"} ${trade.shares} ${side} on ${m.ticker} → ${(p * 100).toFixed(0)}%`,
+    "hedge",
+    `${userName} bought $${Math.round(coverage).toLocaleString()} of protection on ${m.ticker} for $${Math.round(premium).toLocaleString()} (${((premium / coverage) * 100).toFixed(1)}%)`,
     marketId
   );
-  return { ok: true, trade };
+  return { ok: true, premium, rate: premium / coverage, priceAfter: p };
 }
 
 export function settleMarket(s: AppState, marketId: string, outcome: Side, note: string) {
@@ -270,7 +376,7 @@ export function settleMarket(s: AppState, marketId: string, outcome: Side, note:
     if (!pos) continue;
     const winning = outcome === "YES" ? pos.yes : pos.no;
     if (winning > 0) {
-      u.credits += winning; // winning shares redeem at 1 credit
+      u.balanceUsd += winning; // $1 per winning share, instantly — no claims process
       paidOut += winning;
     }
     pos.yes = 0;
@@ -282,15 +388,14 @@ export function settleMarket(s: AppState, marketId: string, outcome: Side, note:
   pushEvent(
     s,
     "settle",
-    `SETTLED ${outcome}: ${m.question} — ${note}. ${Math.round(paidOut)} credits paid out.`,
+    `SETTLED ${outcome}: ${m.question} — ${note}. $${Math.round(paidOut).toLocaleString()} paid out automatically.`,
     marketId
   );
 }
 
-// Survives Next.js dev-server HMR: keep one state object on globalThis.
-const g = globalThis as unknown as { __uptimeMarketState?: AppState };
+const g = globalThis as unknown as { __cumulusState?: AppState };
 
 export function getState(): AppState {
-  if (!g.__uptimeMarketState) g.__uptimeMarketState = seedState();
-  return g.__uptimeMarketState;
+  if (!g.__cumulusState) g.__cumulusState = seedState();
+  return g.__cumulusState;
 }

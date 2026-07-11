@@ -1,32 +1,15 @@
-// Where each service actually runs. Logos are nominative references to the
-// real providers (devicon assets in public/logos).
-export interface RuntimeInfo {
+// The real providers each contract references. Logos are nominative references
+// (devicon / simple-icons assets in public/logos).
+export interface SourceInfo {
   provider: string;
-  product: string;
   logo: string;
-  extraLogo?: string;
+  dark?: boolean; // monochrome logo that needs no recolor on white
 }
 
-export const RUNTIMES: Record<string, RuntimeInfo> = {
-  "checkout-service": {
-    provider: "AWS",
-    product: "EKS · us-east-1",
-    logo: "/logos/aws.svg",
-    extraLogo: "/logos/kubernetes.svg",
-  },
-  "payments-db": {
-    provider: "Google Cloud",
-    product: "Cloud SQL · us-central1",
-    logo: "/logos/googlecloud.svg",
-  },
-  "api-gateway": {
-    provider: "Cloudflare",
-    product: "Workers · global edge",
-    logo: "/logos/cloudflare.svg",
-  },
-  incidents: {
-    provider: "Grafana",
-    product: "unified alerting",
-    logo: "/logos/grafana.svg",
-  },
+export const SOURCES: Record<string, SourceInfo> = {
+  "aws-us-east-1": { provider: "AWS", logo: "/logos/aws.svg" },
+  "stripe-api": { provider: "Stripe", logo: "/logos/stripe.svg", dark: true },
+  "cloudflare-net": { provider: "Cloudflare", logo: "/logos/cloudflare.svg" },
+  "openai-api": { provider: "OpenAI", logo: "/logos/openai.svg", dark: true },
+  "checkout-service": { provider: "Simulated", logo: "/logos/grafana.svg" },
 };

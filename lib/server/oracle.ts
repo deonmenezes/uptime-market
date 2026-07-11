@@ -1,186 +1,180 @@
-// The oracle: a telemetry simulator plus a settlement evaluator.
-// This file is deliberately the ONLY thing that knows where readings come from.
-// Swap `readService` for a Datadog/AWS-status/PagerDuty fetch and nothing else changes.
+// The oracle: real signal collection + settlement evaluation + the demo simulator.
+// Two cadences: a 2s sim tick (demo service, bots, price history) and a 15s real
+// tick (synthetic monitors + public status feeds). Every reading is hashed into
+// an append-only chain (see appendReading) — tamper-evident settlement history.
 
-import type { TelemetryReading } from "@/lib/market/types";
-import { AppState, CONFIG, SERVICES, executeTrade, getState, pushEvent, settleMarket } from "./state";
+import { AppState, CONFIG, appendReading, executeTrade, getState, pushEvent, settleMarket } from "./state";
+import { collectSignals } from "./feeds";
 import { priceYes } from "@/lib/market/lmsr";
 
-interface ServiceProfile {
-  baseErr: number;
-  baseP99: number;
-}
+// ---- demo simulator (the stage safety net) ----
 
-const PROFILES: Record<string, ServiceProfile> = {
-  "checkout-service": { baseErr: 0.4, baseP99: 180 },
-  "payments-db": { baseErr: 0.2, baseP99: 95 },
-  "api-gateway": { baseErr: 0.6, baseP99: 210 },
-};
-
-// ---- reading generation (the swappable part) ----
-
-function readService(s: AppState, service: string): TelemetryReading {
-  const prof = PROFILES[service];
-  const incidentTicks = s.activeIncidents.get(service) ?? 0;
-  const incident = incidentTicks > 0;
-
-  const errorRatePct = incident
-    ? 8 + Math.random() * 18
-    : Math.max(0.05, prof.baseErr + (Math.random() - 0.5) * 0.3);
-  const p99Ms = incident
-    ? prof.baseP99 * (4 + Math.random() * 6)
-    : prof.baseP99 + (Math.random() - 0.5) * 40;
-  const healthy = !incident && errorRatePct < 2;
-
-  const downtime = s.downtimeTicks.get(service) ?? 0;
-  const history = s.telemetry.get(service) ?? [];
-  const totalTicks = history.length + 1;
-  const uptimePct = (1 - downtime / Math.max(totalTicks, 1)) * 100;
-
-  return {
-    ts: Date.now(),
-    service,
-    uptimePct: Math.max(90, uptimePct),
-    errorRatePct: Math.round(errorRatePct * 100) / 100,
-    p99Ms: Math.round(p99Ms),
-    healthy,
-    incident,
-  };
-}
-
-// ---- incident injection (the admin/demo button) ----
-
-export function injectIncident(service: string): { ok: boolean; error?: string } {
+export function injectIncident(): { ok: boolean } {
   const s = getState();
-  if (!SERVICES.includes(service as (typeof SERVICES)[number])) {
-    return { ok: false, error: `unknown service: ${service}` };
-  }
-  const durationTicks = 10 + Math.floor(Math.random() * 6);
-  s.activeIncidents.set(service, durationTicks);
-  s.sev1Count += 1;
-  pushEvent(
-    s,
-    "incident",
-    `SEV-1 #${s.sev1Count} declared on ${service}: error rate spiking, p99 degrading`,
-    undefined
-  );
+  s.simIncidentTicks = 14 + Math.floor(Math.random() * 6);
+  pushEvent(s, "incident", "SEV-1 injected on checkout-service: error rate spiking (simulated)");
   return { ok: true };
 }
 
-// ---- settlement evaluation ----
+function simTick(s: AppState) {
+  const incident = s.simIncidentTicks > 0;
+  if (incident) s.simIncidentTicks -= 1;
+  const errorRate = incident ? 12 + Math.random() * 20 : Math.max(0.05, 0.4 + (Math.random() - 0.5) * 0.3);
+  const latency = incident ? 900 + Math.random() * 1200 : 160 + (Math.random() - 0.5) * 40;
+  const ok = !incident;
 
-function evaluateSettlements(s: AppState) {
-  const slo = s.markets.get("slo-checkout");
-  if (slo?.status === "open") {
-    const downtime = s.downtimeTicks.get("checkout-service") ?? 0;
-    if (downtime > CONFIG.sloDowntimeBudgetTicks) {
-      settleMarket(
-        s,
-        "slo-checkout",
-        "NO",
-        `error budget exhausted (${downtime} unhealthy readings > ${CONFIG.sloDowntimeBudgetTicks} budget)`
-      );
-    }
+  s.simConsecutiveDown = ok ? 0 : s.simConsecutiveDown + 1;
+
+  appendReading(s, {
+    ts: Date.now(),
+    source: "sim:checkout-service",
+    service: "checkout-service",
+    ok,
+    latencyMs: Math.round(latency),
+    indicator: incident ? "incident" : "nominal",
+    summary: `checkout-service err=${errorRate.toFixed(2)}% p99=${Math.round(latency)}ms${incident ? " [injected incident]" : ""}`,
+  });
+
+  if (incident && s.simIncidentTicks === 0) {
+    pushEvent(s, "incident", "checkout-service recovered; simulated incident resolved");
   }
 
-  const sev = s.markets.get("sev1-cap");
-  if (sev?.status === "open" && s.sev1Count > CONFIG.sev1Limit) {
-    settleMarket(s, "sev1-cap", "NO", `Sev-1 count hit ${s.sev1Count} (limit ${CONFIG.sev1Limit})`);
-  }
-
-  const lat = s.markets.get("gw-latency");
-  if (lat?.status === "open" && s.latencyStreak >= CONFIG.latencyBreachStreak) {
+  const demo = s.markets.get("demo-checkout");
+  if (demo?.status === "open" && s.simConsecutiveDown >= CONFIG.simBreachTicks) {
     settleMarket(
       s,
-      "gw-latency",
-      "NO",
-      `p99 above 300ms for ${s.latencyStreak} consecutive readings`
+      "demo-checkout",
+      "YES",
+      `oracle observed ${s.simConsecutiveDown} consecutive failing readings (threshold ${CONFIG.simBreachTicks})`
     );
   }
 }
 
-// ---- light bot flow so prices drift and the tape stays alive ----
+// ---- real signals ----
+
+async function realTick(s: AppState) {
+  const signals = await collectSignals();
+  for (const sig of signals) {
+    appendReading(s, {
+      ts: Date.now(),
+      source: sig.source,
+      service: sig.service,
+      ok: sig.ok,
+      latencyMs: sig.latencyMs,
+      indicator: sig.known ? sig.indicator : "feed-unreachable",
+      summary: sig.summary,
+    });
+    if (!sig.known) continue; // unreachable feed never settles anything
+    if (sig.ok) {
+      s.upReadings.set(sig.service, (s.upReadings.get(sig.service) ?? 0) + 1);
+    } else {
+      s.downReadings.set(sig.service, (s.downReadings.get(sig.service) ?? 0) + 1);
+      if ((s.downReadings.get(sig.service) ?? 0) === 1) {
+        pushEvent(s, "incident", `oracle: degradation detected on ${sig.service} (${sig.summary})`);
+      }
+    }
+  }
+  evaluateRealSettlements(s);
+}
+
+function evaluateRealSettlements(s: AppState) {
+  // AWS us-east-1: any active health event touching the region
+  const aws = s.markets.get("aws-use1");
+  const awsLast = s.lastByService.get("aws-us-east-1");
+  if (aws?.status === "open" && awsLast && awsLast.indicator !== "feed-unreachable" && !awsLast.ok) {
+    settleMarket(s, "aws-use1", "YES", `AWS Health feed shows an active us-east-1 event (reading ${awsLast.hash.slice(0, 12)})`);
+  }
+
+  // Cloudflare: major/critical indicator on the public status page
+  const cf = s.markets.get("cf-incident");
+  const cfLast = s.lastByService.get("cloudflare-net");
+  if (cf?.status === "open" && cfLast && cfLast.indicator !== "feed-unreachable" && !cfLast.ok) {
+    settleMarket(s, "cf-incident", "YES", `cloudflarestatus.com reported ${cfLast.indicator} (reading ${cfLast.hash.slice(0, 12)})`);
+  }
+
+  // Stripe: cumulative failed monitor checks past 30 minutes
+  const stripe = s.markets.get("stripe-30m");
+  const stripeDown = s.downReadings.get("stripe-api") ?? 0;
+  if (stripe?.status === "open" && stripeDown >= CONFIG.stripeDownReadings) {
+    settleMarket(s, "stripe-30m", "YES", `synthetic monitor logged ${stripeDown} failed checks (≈${Math.round((stripeDown * CONFIG.realTickMs) / 60000)} min of downtime)`);
+  }
+
+  // OpenAI: measured weekly availability under the SLO
+  const oai = s.markets.get("openai-slo");
+  const up = s.upReadings.get("openai-api") ?? 0;
+  const down = s.downReadings.get("openai-api") ?? 0;
+  const total = up + down;
+  if (oai?.status === "open" && total >= CONFIG.openaiMinReadings) {
+    const availability = (up / total) * 100;
+    if (availability < CONFIG.openaiSloPct) {
+      settleMarket(s, "openai-slo", "YES", `measured availability ${availability.toFixed(2)}% over ${total} readings (SLO ${CONFIG.openaiSloPct}%)`);
+    }
+  }
+}
+
+// ---- market-maker bots: LPs quote both sides, lean on the signal ----
 
 function botStep(s: AppState) {
-  if (Math.random() > 0.4) return;
-  const bots = [...s.users.values()].filter((u) => u.isBot && u.credits > 25);
+  if (Math.random() > 0.5) return;
+  const bots = [...s.users.values()].filter((u) => u.isBot && u.balanceUsd > 10_000);
   if (!bots.length) return;
   const bot = bots[Math.floor(Math.random() * bots.length)];
   const open = [...s.markets.values()].filter((m) => m.status === "open");
   if (!open.length) return;
   const m = open[Math.floor(Math.random() * open.length)];
 
-  // bots read the room: during an incident on a market's service they buy NO
-  const affected =
-    (s.activeIncidents.get(m.service) ?? 0) > 0 ||
-    (m.id === "sev1-cap" && s.sev1Count > 0);
-  const side = affected ? "NO" : Math.random() > 0.45 ? "YES" : "NO";
-  const spend = 5 + Math.random() * (affected ? 60 : 25);
+  const last = s.lastByService.get(m.service);
+  const degraded = last ? !last.ok : false;
+  // during degradation LPs rush to buy YES (hedge their books); otherwise they
+  // mostly write protection, which keeps premiums competitive
+  const side = degraded ? "YES" : Math.random() > 0.3 ? "NO" : "YES";
+  const spend = degraded ? 8_000 + Math.random() * 25_000 : 500 + Math.random() * 4_000;
   executeTrade(s, bot.name, m.id, side, "buy", spend);
 }
 
-// ---- the loop ----
+// ---- loops, serverless-safe ----
 
-function tick() {
+function tickSimTracked() {
   const s = getState();
-
-  for (const service of SERVICES) {
-    const reading = readService(s, service);
-    const arr = s.telemetry.get(service)!;
-    arr.push(reading);
-    if (arr.length > 600) arr.shift();
-
-    if (!reading.healthy) {
-      s.downtimeTicks.set(service, (s.downtimeTicks.get(service) ?? 0) + 1);
-    }
-    if (service === "api-gateway") {
-      s.latencyStreak = reading.p99Ms > 300 ? s.latencyStreak + 1 : 0;
-    }
-    const remaining = s.activeIncidents.get(service) ?? 0;
-    if (remaining > 0) {
-      s.activeIncidents.set(service, remaining - 1);
-      if (remaining - 1 === 0) {
-        pushEvent(s, "incident", `${service} recovered; incident resolved`);
-      }
-    }
-  }
-
-  // append a history point per tick so charts move even without trades
+  simTick(s);
+  botStep(s);
+  // append a history point so charts move between trades
   for (const m of s.markets.values()) {
     if (m.status !== "open") continue;
     const hist = s.priceHistory.get(m.id)!;
     hist.push({ ts: Date.now(), p: priceYes(m.qYes, m.qNo, m.b) });
     if (hist.length > 2500) hist.shift();
   }
-
-  botStep(s);
-  evaluateSettlements(s);
+  g.__cumulusLastSim = Date.now();
 }
 
-// Start exactly one loop per process, surviving dev HMR. On serverless
-// (Vercel), the interval only runs while the instance is warm, so ensureOracle
-// also runs catch-up ticks for any gap since the last one: every API request
-// advances the simulation to "now" before answering.
+async function tickRealTracked() {
+  const s = getState();
+  g.__cumulusLastReal = Date.now(); // set before await so concurrent requests don't double-fire
+  await realTick(s);
+}
+
 const g = globalThis as unknown as {
-  __uptimeOracleTimer?: ReturnType<typeof setInterval>;
-  __uptimeLastTick?: number;
+  __cumulusSimTimer?: ReturnType<typeof setInterval>;
+  __cumulusRealTimer?: ReturnType<typeof setInterval>;
+  __cumulusLastSim?: number;
+  __cumulusLastReal?: number;
 };
-
-function tickTracked() {
-  tick();
-  g.__uptimeLastTick = Date.now();
-}
 
 export function ensureOracle() {
   const s = getState();
-  if (!g.__uptimeOracleTimer) {
-    g.__uptimeOracleTimer = setInterval(tickTracked, CONFIG.tickMs);
-    g.__uptimeLastTick = Date.now();
-    s.loopStarted = true;
-    pushEvent(s, "system", "telemetry oracle online: reading services every 2s");
+  if (!g.__cumulusSimTimer) {
+    g.__cumulusSimTimer = setInterval(tickSimTracked, CONFIG.simTickMs);
+    g.__cumulusRealTimer = setInterval(() => void tickRealTracked(), CONFIG.realTickMs);
+    g.__cumulusLastSim = Date.now();
+    pushEvent(s, "system", "oracle online: monitors every 15s, simulator every 2s, every reading sha256-chained");
+    void tickRealTracked();
     return;
   }
-  const gap = Date.now() - (g.__uptimeLastTick ?? Date.now());
-  const missed = Math.min(30, Math.floor(gap / CONFIG.tickMs));
-  for (let i = 0; i < missed; i++) tickTracked();
+  // serverless catch-up: intervals pause when the instance sleeps
+  const simGap = Date.now() - (g.__cumulusLastSim ?? Date.now());
+  const missedSim = Math.min(30, Math.floor(simGap / CONFIG.simTickMs));
+  for (let i = 0; i < missedSim; i++) tickSimTracked();
+  const realGap = Date.now() - (g.__cumulusLastReal ?? 0);
+  if (realGap > CONFIG.realTickMs) void tickRealTracked();
 }

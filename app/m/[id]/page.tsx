@@ -3,10 +3,11 @@
 import { use } from "react";
 import Link from "next/link";
 import { useMarketStore } from "@/components/StoreContext";
-import { fmtCredits, fmtPct, timeAgo } from "@/lib/format";
-import { RUNTIMES } from "@/lib/runtimes";
+import { fmtPct, fmtUsd, timeAgo } from "@/lib/format";
+import { SOURCES } from "@/lib/runtimes";
 import ProbChart from "@/components/ProbChart";
 import TradePanel from "@/components/TradePanel";
+import HedgePanel from "@/components/HedgePanel";
 import TradeTape from "@/components/TradeTape";
 import NameGate from "@/components/NameGate";
 import StatusStrip from "@/components/StatusStrip";
@@ -14,14 +15,14 @@ import LiveTicker from "@/components/LiveTicker";
 
 export default function MarketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { snap, flashes } = useMarketStore();
+  const { snap, flashes, mode } = useMarketStore();
   const market = snap?.markets.find((m) => m.id === id);
 
   if (snap && !market) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-24 text-center">
-        <p className="font-display text-3xl font-bold text-down">market not found</p>
-        <Link href="/" className="mt-4 inline-block font-mono text-xs uppercase text-up underline">
+        <p className="font-display text-3xl font-bold text-down">contract not found</p>
+        <Link href="/" className="mt-4 inline-block font-mono text-xs uppercase text-updim underline">
           ← back to markets
         </Link>
       </main>
@@ -31,15 +32,16 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
   if (!market) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-12">
-        <div className="h-96 animate-pulse rounded-md border border-edge bg-panel" />
+        <div className="h-96 animate-pulse rounded-xl border border-edge bg-panel2" />
       </main>
     );
   }
 
   const settled = market.status === "settled";
   const flash = flashes[market.id];
-  const reading = snap?.telemetry.find((t) => t.service === market.service);
-  const myPos = snap?.user?.positions[market.id];
+  const monitor = snap?.monitors.find((t) => t.service === market.service);
+  const src = SOURCES[market.service];
+  const collateralized = market.exposureUsd > 0 ? Math.min(1, market.escrowUsd / market.exposureUsd) : 1;
 
   return (
     <main>
@@ -48,14 +50,14 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
       <LiveTicker />
 
       <div className="mx-auto max-w-7xl px-4 py-4 pb-24">
-        <Link href="/" className="font-mono text-[11px] uppercase tracking-wider text-fog hover:text-up">
+        <Link href="/" className="font-mono text-[11px] uppercase tracking-wider text-fog hover:text-updim">
           ← markets
         </Link>
 
         {/* header */}
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <div
-            className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-edge"
+            className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-edge"
             style={{
               backgroundImage: `url(/art/light/${market.service}.png), linear-gradient(135deg, #f4f7f2, #ffffff)`,
               backgroundSize: "cover, cover",
@@ -68,37 +70,35 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
             </h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-fog">
               <span className="text-gold">{market.ticker}</span>
-              {RUNTIMES[market.service] && (
+              {src && (
                 <span className="flex items-center gap-1.5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={RUNTIMES[market.service].logo}
-                    alt={RUNTIMES[market.service].provider}
-                    className="h-4 w-auto max-w-8"
-                  />
-                  {market.service} · {RUNTIMES[market.service].product}
+                  <img src={src.logo} alt={src.provider} className="h-4 w-auto max-w-8" />
+                  {src.provider}
                 </span>
               )}
-              <span className={market.settlement === "auto" ? "text-info" : "text-gold"}>
-                {market.settlement === "auto" ? "oracle-settled" : "manually settled"}
-              </span>
+              <a href={market.sourceUrl} target="_blank" rel="noreferrer" className="text-info hover:underline">
+                {market.sourceName} ↗
+              </a>
               <span>closes {market.closesLabel}</span>
-              <span className="tabular">{fmtCredits(market.volumeCredits)} cr volume</span>
+              <span className="tabular">{fmtUsd(market.volumeUsd)} volume</span>
             </div>
           </div>
 
           <div
             key={flash?.at ?? "p"}
             className={[
-              "rounded-md border border-edge bg-panel px-5 py-2 text-right",
-              flash && !settled ? (flash.dir === "up" ? "animate-flash-up" : "animate-flash-down") : "",
+              "rounded-lg border border-edge bg-panel px-5 py-2 text-right",
+              flash && !settled ? (flash.dir === "up" ? "animate-flash-down" : "animate-flash-up") : "",
             ].join(" ")}
           >
-            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-fog">yes probability</div>
+            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-fog">
+              {mode === "hedger" ? "premium rate" : "yes probability"}
+            </div>
             <div
               className={[
                 "tabular font-display text-4xl font-bold leading-none",
-                settled ? (market.outcome === "YES" ? "text-up" : "text-down") : market.price >= 0.5 ? "text-up" : "text-down",
+                settled ? (market.outcome === "YES" ? "text-gold" : "text-fog") : market.price >= 0.5 ? "text-down" : "text-bone",
               ].join(" ")}
             >
               {fmtPct(market.price)}
@@ -107,82 +107,84 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
         </div>
 
         {/* content grid */}
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_330px]">
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
           <div className="space-y-4">
-            <div className="rounded-md border border-edge bg-panel p-2">
+            <div className="rounded-xl border border-edge bg-panel p-2">
               <div className="flex items-center justify-between px-2 pt-1">
                 <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog">
-                  probability · live
+                  {mode === "hedger" ? "premium rate · live" : "probability · live"}
                 </span>
-                {market.service === "api-gateway" && (
-                  <span className="font-mono text-[10px] text-info">p99 latency overlaid</span>
+                {monitor && (
+                  <span className="tabular font-mono text-[10px] text-info">
+                    {monitor.latencyMs !== null ? `monitor: ${monitor.latencyMs}ms` : monitor.indicator}
+                  </span>
                 )}
               </div>
-              <ProbChart marketId={id} showLatency={market.service === "api-gateway"} />
+              <ProbChart marketId={id} showLatency={false} />
             </div>
 
-            {reading && (
-              <div className="grid-tex rounded-md border border-edge bg-panel p-3">
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog">
-                    oracle reading · {reading.service}
-                  </span>
-                  <span className="tabular font-mono text-xs text-bone">up {reading.uptimePct.toFixed(2)}%</span>
-                  <span className={["tabular font-mono text-xs", reading.errorRatePct > 2 ? "text-down" : "text-bone"].join(" ")}>
-                    err {reading.errorRatePct.toFixed(2)}%
-                  </span>
-                  <span className={["tabular font-mono text-xs", reading.p99Ms > 300 ? "text-down" : "text-bone"].join(" ")}>
-                    p99 {reading.p99Ms}ms
-                  </span>
+            {/* what settles this */}
+            <div className="grid-tex rounded-xl border border-edge bg-panel p-3.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog">
+                  what settles this contract
+                </span>
+                {monitor && (
                   <span
                     className={[
                       "ml-auto flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest",
-                      reading.incident ? "text-down" : "text-up",
+                      monitor.ok ? "text-updim" : "text-down",
                     ].join(" ")}
                   >
-                    <span className={["h-1.5 w-1.5 rounded-full", reading.incident ? "animate-siren bg-down" : "bg-up"].join(" ")} />
-                    {reading.incident ? "incident active" : "nominal"}
+                    <span className={["h-1.5 w-1.5 rounded-full", monitor.ok ? "bg-up" : "animate-siren bg-down"].join(" ")} />
+                    {monitor.ok ? "nominal" : "degraded"}
+                    {monitor.latencyMs !== null && ` · ${monitor.latencyMs}ms`}
                   </span>
-                </div>
+                )}
               </div>
-            )}
+              <p className="mt-1.5 text-xs leading-relaxed text-fog">{market.trigger}</p>
+              <p className="mt-1.5 font-mono text-[10px] text-fog/70">
+                no committee resolves this — the monitor does.{" "}
+                <Link href="/oracle" className="text-info hover:underline">
+                  inspect the signed reading chain →
+                </Link>
+              </p>
+            </div>
 
             <TradeTape marketId={id} />
           </div>
 
           <div className="space-y-4">
-            <TradePanel market={market} />
+            {mode === "hedger" ? <HedgePanel market={market} /> : <TradePanel market={market} />}
 
-            {myPos && (myPos.yes > 0 || myPos.no > 0) && (
-              <div className="rounded-md border border-edge bg-panel p-3">
-                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog">your position</div>
-                <div className="tabular mt-2 space-y-1 font-mono text-xs">
-                  {myPos.yes > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-up">{myPos.yes.toFixed(1)} YES</span>
-                      <span className="text-fog">worth ~{(myPos.yes * market.price).toFixed(1)} cr</span>
-                    </div>
-                  )}
-                  {myPos.no > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-down">{myPos.no.toFixed(1)} NO</span>
-                      <span className="text-fog">worth ~{(myPos.no * (1 - market.price)).toFixed(1)} cr</span>
-                    </div>
-                  )}
-                </div>
+            {/* escrow panel */}
+            <div className="rounded-xl border border-edge bg-panel p-3.5">
+              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog">collateral escrow</div>
+              <div className="tabular mt-2 flex justify-between font-mono text-xs">
+                <span className="text-bone">{fmtUsd(market.escrowUsd)} escrowed</span>
+                <span className="text-fog">{fmtUsd(market.exposureUsd)} max payout</span>
               </div>
-            )}
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-panel2">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-updim to-up transition-[width] duration-700"
+                  style={{ width: `${collateralized * 100}%` }}
+                />
+              </div>
+              <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-fog/70">
+                every dollar of written protection is escrowed at $1 per share — sellers cannot write
+                uncollateralized coverage
+              </p>
+            </div>
 
-            <div className="rounded-md border border-edge bg-panel p-3">
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog">settlement rules</div>
-              <p className="mt-1.5 text-xs leading-relaxed text-fog">{market.rule}</p>
-              {settled && (
-                <p className="mt-2 border-t border-edge pt-2 font-mono text-[11px] text-gold">
+            {settled && (
+              <div className="rounded-xl border border-gold/40 bg-gold/5 p-3.5">
+                <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold">settlement record</div>
+                <p className="mt-1.5 text-xs leading-relaxed text-fog">
                   settled {market.outcome} · {market.settledNote}
                   {market.settledTs && snap ? ` · ${timeAgo(market.settledTs, snap.now)} ago` : ""}
                 </p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

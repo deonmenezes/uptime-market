@@ -16,7 +16,7 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const rate = snap?.creditsPerSol ?? 10_000;
+  const rate = snap?.usdPerSol ?? 10_000;
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -52,7 +52,7 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
       const signature = await depositSol(snap.treasury, amount);
       setStatus("confirmed on-chain — verifying server-side…");
       const res = await creditDeposit(signature);
-      setStatus(`credited ${res.credits} credits. balance: ${Math.round(res.newBalance)}`);
+      setStatus(`credited $${res.usd.toLocaleString()}. balance: $${Math.round(res.newBalance).toLocaleString()}`);
     });
 
   return (
@@ -63,9 +63,9 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
       >
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="font-display text-xl font-bold text-bone">Deposit SOL → credits</h2>
+            <h2 className="font-display text-xl font-bold text-bone">Deposit SOL → USD balance</h2>
             <p className="mt-1 font-mono text-[11px] text-fog">
-              solana devnet · 1 SOL = {rate.toLocaleString()} credits
+              solana devnet · 1 SOL = ${rate.toLocaleString()} (play)
             </p>
           </div>
           <button onClick={onClose} className="font-mono text-fog hover:text-bone">✕</button>
@@ -123,7 +123,7 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
             <p className="tabular mt-1.5 text-right font-mono text-[11px] text-fog">
-              = {Math.floor(amount * rate).toLocaleString()} credits
+              = ${Math.floor(amount * rate).toLocaleString()} balance
             </p>
           </div>
 

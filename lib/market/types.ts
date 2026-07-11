@@ -1,15 +1,18 @@
 export type Side = "YES" | "NO";
 export type MarketStatus = "open" | "settled";
 export type SettlementMode = "auto" | "manual";
+export type OracleSource = "aws-feed" | "cloudflare-feed" | "stripe-monitor" | "openai-monitor" | "simulator";
 
-export interface TelemetryReading {
+export interface OracleReading {
   ts: number;
+  source: string; // e.g. "monitor:openai", "feed:cloudflare", "sim:checkout-service"
   service: string;
-  uptimePct: number;
-  errorRatePct: number;
-  p99Ms: number;
-  healthy: boolean;
-  incident: boolean;
+  ok: boolean; // service considered up in this reading
+  latencyMs: number | null;
+  indicator: string | null; // statuspage indicator or sim state
+  summary: string;
+  hash: string;
+  prevHash: string;
 }
 
 export interface PricePoint {
@@ -21,9 +24,12 @@ export interface Market {
   id: string;
   ticker: string;
   question: string;
-  service: string; // telemetry source + artwork key
+  service: string; // artwork + monitor key
+  source: OracleSource;
+  sourceName: string; // human label, e.g. "AWS status feed"
+  sourceUrl: string;
+  trigger: string; // plain-english settlement trigger
   settlement: SettlementMode;
-  rule: string;
   status: MarketStatus;
   outcome: Side | null;
   settledTs: number | null;
@@ -33,17 +39,19 @@ export interface Market {
   b: number;
   createdTs: number;
   closesLabel: string;
-  volumeCredits: number;
+  volumeUsd: number;
 }
 
 export interface Position {
-  yes: number;
-  no: number;
+  yes: number; // $1-payout shares = dollars of coverage held
+  no: number; // $1-payout shares = dollars of protection written
+  premiumPaid: number;
+  premiumEarned: number;
 }
 
 export interface UserAccount {
   name: string;
-  credits: number;
+  balanceUsd: number;
   positions: Record<string, Position>;
   usedSignatures: string[];
   wallet: string | null;
@@ -58,7 +66,7 @@ export interface TradeRecord {
   marketId: string;
   side: Side;
   action: "buy" | "sell";
-  credits: number;
+  usd: number;
   shares: number;
   priceAfter: number;
 }
@@ -66,35 +74,57 @@ export interface TradeRecord {
 export interface FeedEvent {
   id: string;
   ts: number;
-  kind: "trade" | "settle" | "incident" | "deposit" | "system";
+  kind: "trade" | "hedge" | "settle" | "incident" | "deposit" | "system";
   text: string;
   marketId?: string;
 }
 
-// ---- wire types (what /api/state returns) ----
+// ---- wire types ----
 
 export interface MarketView extends Market {
-  price: number; // current YES probability
-  spark: number[]; // recent price points for card sparklines
+  price: number;
+  spark: number[];
+  escrowUsd: number; // NO shares outstanding = collateral posted
+  exposureUsd: number; // YES shares outstanding = max payout owed
+}
+
+export interface MonitorStatus {
+  service: string;
+  label: string;
+  ok: boolean;
+  latencyMs: number | null;
+  indicator: string | null;
+  checkedTs: number;
 }
 
 export interface LeaderboardRow {
   name: string;
-  credits: number;
-  portfolio: number; // mark-to-market value of open positions
-  netWorth: number;
+  balanceUsd: number;
+  portfolioUsd: number;
+  netWorthUsd: number;
   isBot: boolean;
 }
 
 export interface StateSnapshot {
   now: number;
   markets: MarketView[];
-  telemetry: TelemetryReading[]; // latest reading per service
-  sev1Count: number;
+  monitors: MonitorStatus[];
   trades: TradeRecord[];
   events: FeedEvent[];
   leaderboard: LeaderboardRow[];
-  user: { name: string; credits: number; positions: Record<string, Position> } | null;
+  user: {
+    name: string;
+    balanceUsd: number;
+    positions: Record<string, Position>;
+  } | null;
+  oracleChainLength: number;
   treasury: string;
-  creditsPerSol: number;
+  usdPerSol: number;
+}
+
+export interface HedgeQuote {
+  coverage: number;
+  premium: number;
+  rate: number;
+  priceAfter: number;
 }

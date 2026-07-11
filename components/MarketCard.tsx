@@ -3,8 +3,9 @@
 import Link from "next/link";
 import type { MarketView } from "@/lib/market/types";
 import type { FlashInfo } from "@/lib/client/useStore";
-import { fmtCredits, fmtPct } from "@/lib/format";
-import { RUNTIMES } from "@/lib/runtimes";
+import { fmtPct, fmtUsd } from "@/lib/format";
+import { SOURCES } from "@/lib/runtimes";
+import { useMarketStore } from "./StoreContext";
 import Sparkline from "./Sparkline";
 
 export default function MarketCard({
@@ -14,8 +15,10 @@ export default function MarketCard({
   market: MarketView;
   flash: FlashInfo | undefined;
 }) {
+  const { mode } = useMarketStore();
   const settled = market.status === "settled";
-  const rt = RUNTIMES[market.service];
+  const src = SOURCES[market.service];
+  const collateralized = market.exposureUsd > 0 ? Math.min(1, market.escrowUsd / market.exposureUsd) : 1;
 
   return (
     <Link
@@ -25,13 +28,13 @@ export default function MarketCard({
         "card-lift group relative block overflow-hidden rounded-xl border bg-panel",
         settled
           ? market.outcome === "YES"
-            ? "border-up/50"
-            : "border-down/50"
+            ? "border-gold/60"
+            : "border-edge2"
           : "border-edge hover:border-up/50",
-        flash && !settled ? (flash.dir === "up" ? "animate-flash-up" : "animate-flash-down") : "",
+        flash && !settled ? (flash.dir === "up" ? "animate-flash-down" : "animate-flash-up") : "",
       ].join(" ")}
     >
-      {/* codex-rendered light artwork banner */}
+      {/* codex-rendered artwork banner */}
       <div className="relative h-24 overflow-hidden border-b border-edge">
         <div
           className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
@@ -41,27 +44,27 @@ export default function MarketCard({
             backgroundPosition: "center 35%, center",
           }}
         />
+        {src && (
+          <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/92 px-2.5 py-1 shadow-sm backdrop-blur-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src.logo} alt={src.provider} className="h-4 w-auto max-w-8" />
+            <span className="font-mono text-[9px] font-medium text-fog">{src.provider}</span>
+          </span>
+        )}
         <span
           className={[
             "absolute right-3 top-3 rounded-full px-2.5 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] shadow-sm backdrop-blur-sm",
             settled
               ? market.outcome === "YES"
-                ? "bg-up text-white"
-                : "bg-down text-white"
+                ? "bg-gold text-white"
+                : "bg-panel2 text-fog"
               : market.settlement === "auto"
-                ? "bg-white/90 text-info"
-                : "bg-white/90 text-gold",
+                ? "bg-white/92 text-info"
+                : "bg-white/92 text-gold",
           ].join(" ")}
         >
-          {settled ? `settled ${market.outcome}` : market.settlement === "auto" ? "oracle-settled" : "manual settle"}
+          {settled ? `settled ${market.outcome}` : "machine-settled"}
         </span>
-        {rt && (
-          <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 shadow-sm backdrop-blur-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={rt.logo} alt={rt.provider} className="h-4 w-auto max-w-8" />
-            <span className="font-mono text-[9px] font-medium text-fog">{market.service}</span>
-          </span>
-        )}
       </div>
 
       <div className="p-4 pt-3">
@@ -71,38 +74,50 @@ export default function MarketCard({
 
         <div className="mt-2 flex items-end justify-between gap-3">
           <div>
-            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-fog">yes probability</div>
+            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-fog">
+              {mode === "hedger" ? "protection premium" : "outage probability"}
+            </div>
             <div
               className={[
                 "tabular font-display text-4xl font-bold leading-none tracking-tight",
                 settled
                   ? market.outcome === "YES"
-                    ? "text-up"
-                    : "text-down"
+                    ? "text-gold"
+                    : "text-fog"
                   : market.price >= 0.5
-                    ? "text-up"
-                    : "text-down",
+                    ? "text-down"
+                    : "text-bone",
               ].join(" ")}
             >
-              {fmtPct(market.price)}
+              {settled ? (market.outcome === "YES" ? "PAID" : "CLEAN") : fmtPct(market.price)}
             </div>
+            {!settled && mode === "hedger" && (
+              <div className="tabular mt-1 font-mono text-[10px] text-fog">
+                {fmtUsd(market.price * 50_000)} per $50K of coverage
+              </div>
+            )}
           </div>
           <Sparkline data={market.spark} />
         </div>
 
-        {/* probability bar */}
-        <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-panel2">
-          <div
-            className="h-full bg-up transition-[width] duration-700"
-            style={{ width: `${market.price * 100}%` }}
-          />
-          <div className="h-full flex-1 bg-down/40" />
+        {/* collateral escrow bar */}
+        <div className="mt-3">
+          <div className="flex justify-between font-mono text-[9px] uppercase tracking-wider text-fog">
+            <span>escrow {fmtUsd(market.escrowUsd)}</span>
+            <span>{Math.round(collateralized * 100)}% collateralized · exposure {fmtUsd(market.exposureUsd)}</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-panel2">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-updim to-up transition-[width] duration-700"
+              style={{ width: `${collateralized * 100}%` }}
+            />
+          </div>
         </div>
 
         <div className="tabular mt-3 flex items-center gap-3 font-mono text-[10px] uppercase tracking-wider text-fog">
           <span>{market.ticker}</span>
-          <span>{fmtCredits(market.volumeCredits)} cr vol</span>
-          <span className="ml-auto text-gold">{settled ? market.settledNote?.slice(0, 24) : market.closesLabel}</span>
+          <span>{fmtUsd(market.volumeUsd)} vol</span>
+          <span className="ml-auto text-gold">{settled ? "auto-paid" : market.closesLabel}</span>
         </div>
       </div>
     </Link>

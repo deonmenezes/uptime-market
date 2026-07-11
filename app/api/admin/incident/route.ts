@@ -1,13 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { ensureOracle, injectIncident } from "@/lib/server/oracle";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
+// Demo-only: inject an outage into the simulated checkout-service so the
+// settlement moment is guaranteed on stage.
+export async function POST() {
   ensureOracle();
-  const body = await req.json().catch(() => null);
-  const service = typeof body?.service === "string" ? body.service : "";
-  const result = injectIncident(service);
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+  injectIncident();
   return NextResponse.json({ ok: true });
 }

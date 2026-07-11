@@ -1,57 +1,69 @@
 "use client";
 
 import { useMarketStore } from "./StoreContext";
-import { RUNTIMES } from "@/lib/runtimes";
+import { SOURCES } from "@/lib/runtimes";
+import { fmtPct } from "@/lib/format";
+import Sparkline from "./Sparkline";
 
-// Live service health, straight from the telemetry oracle, with the runtime
-// each service actually runs on.
+// The Cloud Reliability Index: the public-good price feed. Each contract's
+// live probability, straight off the book, plus the raw monitor reading.
 export default function StatusStrip() {
   const { snap } = useMarketStore();
   if (!snap) return null;
 
   return (
     <div className="grid-tex border-b border-edge bg-panel2/70">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-stretch gap-x-10 gap-y-2 px-4 py-2.5">
-        {snap.telemetry.map((t) => {
-          const rt = RUNTIMES[t.service];
+      <div className="mx-auto flex max-w-7xl items-center gap-x-8 gap-y-2 overflow-x-auto px-4 py-2.5">
+        <span className="shrink-0 font-mono text-[9px] font-semibold uppercase tracking-[0.25em] text-fog">
+          cloud reliability
+          <br />
+          index · live
+        </span>
+
+        {snap.markets.map((m) => {
+          const src = SOURCES[m.service];
+          const monitor = snap.monitors.find((x) => x.service === m.service);
+          const degraded = monitor ? !monitor.ok : false;
           return (
-            <div key={t.service} className="flex items-center gap-3">
-              <span
-                className={[
-                  "h-2 w-2 rounded-full",
-                  t.incident ? "animate-siren bg-down" : t.healthy ? "bg-up" : "animate-siren bg-gold",
-                ].join(" ")}
-              />
-              {rt && (
+            <a key={m.id} href={`/m/${m.id}`} className="flex shrink-0 items-center gap-2.5">
+              {src && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={rt.logo} alt={rt.provider} title={`${rt.provider} ${rt.product}`} className="h-5 w-auto max-w-9" />
+                <img src={src.logo} alt={src.provider} className="h-5 w-auto max-w-9" />
               )}
               <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-[11px] font-semibold text-bone">{t.service}</span>
-                  {rt && <span className="hidden font-mono text-[9px] text-fog/70 xl:inline">{rt.product}</span>}
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={[
+                      "h-1.5 w-1.5 rounded-full",
+                      m.status === "settled" ? "bg-gold" : degraded ? "animate-siren bg-down" : "bg-up",
+                    ].join(" ")}
+                  />
+                  <span className="font-mono text-[10px] font-semibold text-bone">{m.ticker}</span>
+                  <span
+                    className={[
+                      "tabular font-mono text-[11px] font-bold",
+                      m.price >= 0.5 ? "text-down" : "text-updim",
+                    ].join(" ")}
+                  >
+                    {m.status === "settled" ? `⚖ ${m.outcome}` : fmtPct(m.price)}
+                  </span>
                 </div>
-                <div className="tabular flex gap-3 font-mono text-[10px] text-fog">
-                  <span>up {t.uptimePct.toFixed(2)}%</span>
-                  <span className={t.errorRatePct > 2 ? "font-semibold text-down" : ""}>err {t.errorRatePct.toFixed(2)}%</span>
-                  <span className={t.p99Ms > 300 ? "font-semibold text-down" : ""}>p99 {t.p99Ms}ms</span>
+                <div className="tabular font-mono text-[9px] text-fog">
+                  {monitor
+                    ? monitor.latencyMs !== null
+                      ? `${monitor.label} · ${monitor.latencyMs}ms`
+                      : `${monitor.label} · ${monitor.indicator ?? ""}`
+                    : m.sourceName}
                 </div>
               </div>
-            </div>
+              <Sparkline data={m.spark} width={56} height={20} />
+            </a>
           );
         })}
 
-        <div className="ml-auto flex items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-fog">sev-1 this week</span>
-          <span
-            className={[
-              "tabular rounded-sm border px-2 py-0.5 font-mono text-sm font-bold",
-              snap.sev1Count > 2 ? "border-down text-down" : snap.sev1Count > 0 ? "border-gold text-gold" : "border-edge2 text-bone",
-            ].join(" ")}
-          >
-            {snap.sev1Count}
-          </span>
-        </div>
+        <span className="ml-auto hidden shrink-0 font-mono text-[9px] text-fog/60 xl:block">
+          sha256-chained readings: {snap.oracleChainLength}
+        </span>
       </div>
     </div>
   );

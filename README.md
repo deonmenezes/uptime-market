@@ -1,52 +1,61 @@
-# Uptime Market
+# Cumulus — Tradeable Downtime Protection
 
-**Your status reports are optimistic. Your engineers aren't.**
+**SLA credits are toy insurance. Cumulus is an open market where any company can buy real
+downtime protection, anyone can sell it, and settlement is a machine reading cloud telemetry.**
 
-An internal prediction market for engineering reliability. Engineers trade on whether SLOs hold,
-incident budgets survive the week, and migrations actually ship. Private knowledge becomes public
-information the moment someone trades on it, and settlement is a machine reading telemetry:
-no committee, no dispute.
+A parametric insurance policy is a prediction market contract with one buyer and one seller.
+Cumulus chops it into $1 shares: the **hedger view** sells it as coverage and premium, the
+**trader view** shows the same contract as a probability. One toggle switches costumes — that
+toggle is the pitch.
 
-Built to the hackathon PRD: LMSR market maker, simulated telemetry oracle with live
-auto-settlement, calibration leaderboard, in-memory state, 2s polling. Plus a real crypto rail:
-deposit devnet SOL via Phantom and the server verifies the transaction on-chain before crediting.
+Live at **https://predfun.vercel.app** · repo: deonmenezes/uptime-market
 
 ## Run
 
 ```bash
-npm install
-npm run dev
+npm install && npm run dev
 ```
 
-Pick a handle (1,000 credits), trade, then hit an **inject SEV-1** button in the ops console and
-watch the oracle breach-detect and settle the affected market live.
+## The demo (PRD §4)
 
-## The 90-second demo (PRD §3)
+1. The reliability index strip shows "AWS us-east-1 major outage in July" at ~12% — a number
+   that doesn't exist anywhere else.
+2. Hedger view: buy $50,000 of protection for a quoted premium. Plain English, no jargon.
+3. Toggle to trader view: the purchase is YES shares; the probability just ticked up.
+4. Demo console: inject an outage on the simulated checkout-service → the oracle logs 8
+   failing readings → the contract settles YES and protection holders are **paid instantly,
+   no claim filed**.
+5. `/oracle` shows every reading sha256-chained to its predecessor — tamper-evident history.
 
-1. Board shows four live markets priced by LMSR; bots drift the prices.
-2. Buy NO on "checkout-service meets its 99.9% SLO" — the probability drops on the chart.
-3. Ops console → inject SEV-1 on checkout-service. Telemetry spikes on the status strip.
-4. The oracle counts unhealthy readings; when the error budget is exhausted the market
-   auto-settles NO, pays out winning shares, and the leaderboard reorders.
+## What's real
+
+- **The oracle is live, not mocked**: every 15s it pings api.stripe.com and api.openai.com
+  (latency + status) and polls the public AWS Health and Cloudflare status feeds. Real
+  degradations move real contracts. The simulated checkout-service market exists as the stage
+  safety net (real outages don't schedule themselves around demo slots).
+- **LMSR market maker** (b=250,000): a quote exists at any size; a $50K hedge moves ~12%→14%.
+- **Full collateralization**: writing protection escrows $1 per share; every card shows the
+  escrow vs open-exposure bar.
+- **Signed readings**: `sha256(reading + prev_hash)` append-only chain, verified and served at
+  `/api/oracle/log`.
+- **Crypto rail (devnet)**: deposit SOL via Phantom; the server verifies the transaction
+  on-chain (destination, amount, replay) and credits play-USD at $10K/SOL.
 
 ## Architecture
 
-- `lib/market/lmsr.ts` — Hanson's LMSR: cost function, closed-form shares-for-spend, sale proceeds. Same math runs server-side (execution) and client-side (previews).
-- `lib/server/state.ts` — the entire backend state: users, markets, positions, trades, price history. In-memory on `globalThis` (survives dev HMR). Restart = fresh state, by design.
-- `lib/server/oracle.ts` — **the differentiating file.** Telemetry simulator + settlement evaluator. `readService()` is the only place readings come from: swap it for Datadog/AWS-status and nothing else changes.
-- `app/api/*` — the PRD's five endpoints plus `/api/user` and `/api/deposit`.
-- `lib/client/useStore.ts` — 2s polling store; diffs prices to drive the flash animations.
-- `lib/client/phantom.ts` — Phantom connect, devnet airdrop, SOL transfer to treasury.
-- `app/api/deposit` — server-side on-chain verification of the deposit signature (destination, amount, replay protection) before crediting.
+- `lib/market/lmsr.ts` — LMSR math shared by server execution and client previews
+- `lib/server/state.ts` — all state, in-memory on `globalThis` (fresh per restart, by design)
+- `lib/server/feeds.ts` — the real-world signal layer: synthetic monitors + status feeds
+- `lib/server/oracle.ts` — reading chain, settlement evaluation, demo simulator, LP bots;
+  serverless-safe (interval + catch-up ticks)
+- `app/api/*` — state, trade, hedge, deposit, admin, oracle/log, market history
+- Hedger/trader views: `components/HedgePanel.tsx` vs `components/TradePanel.tsx`, toggled
+  globally from the header
+- Artwork: codex-generated renders in `public/art/` (Pillow compositor, no stock assets);
+  provider logos are devicon/simple-icons references
 
-## Crypto payments (devnet)
+## Known gaps (per PRD §10)
 
-Header → **deposit SOL**: connect Phantom, optionally airdrop 1 devnet SOL, send a transfer to
-the treasury. The server reads the transaction from devnet RPC and credits 10,000 credits per SOL.
-Treasury keypair lives in `.treasury.json` (gitignored); set `TREASURY_ADDRESS` to override.
-Devnet only — no real funds.
-
-## Artwork
-
-`public/art/*.png` are HD renders generated by codex (OpenAI Codex CLI writing and running a
-Pillow/NumPy compositor): gradient meshes with per-service geometric motifs, no stock assets.
+Correlation (one outage triggers everything — mitigated by full collateral), regulation (play
+money; production needs a CFTC wrapper or licensed carrier), basis risk (region-wide index vs
+your specific stack).

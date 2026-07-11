@@ -48,12 +48,12 @@ export async function POST(req: NextRequest) {
     }
 
     const sol = lamports / 1e9;
-    const credits = Math.floor(sol * CONFIG.creditsPerSol);
-    account.credits += credits;
+    const usd = Math.floor(sol * CONFIG.usdPerSol);
+    account.balanceUsd += usd;
     account.usedSignatures.push(signature);
-    pushEvent(s, "deposit", `${user} deposited ${sol.toFixed(4)} SOL → ${credits} credits (devnet)`);
+    pushEvent(s, "deposit", `${user} deposited ${sol.toFixed(4)} SOL → $${usd.toLocaleString()} (devnet)`);
 
-    return NextResponse.json({ ok: true, credits, newBalance: account.credits });
+    return NextResponse.json({ ok: true, usd, newBalance: account.balanceUsd });
   } catch {
     return NextResponse.json({ error: "could not verify transaction on devnet RPC" }, { status: 502 });
   }

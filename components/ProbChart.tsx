@@ -1,18 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import {
-  createChart,
-  AreaSeries,
-  ColorType,
-  LineSeries,
-  type UTCTimestamp,
-} from "lightweight-charts";
-import type { PricePoint, TelemetryReading } from "@/lib/market/types";
+import { createChart, AreaSeries, ColorType, type UTCTimestamp } from "lightweight-charts";
+import type { PricePoint } from "@/lib/market/types";
 
-// Live probability chart, with the service's p99 overlaid so the audience can
-// SEE telemetry move the market.
-export default function ProbChart({ marketId, showLatency }: { marketId: string; showLatency: boolean }) {
+// Live probability chart for one contract.
+export default function ProbChart({ marketId }: { marketId: string; showLatency?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,20 +36,8 @@ export default function ProbChart({ marketId, showLatency }: { marketId: string;
       topColor: "rgba(12, 138, 77, 0.18)",
       bottomColor: "rgba(12, 138, 77, 0.01)",
       lineWidth: 2,
-      priceFormat: { type: "custom", formatter: (p: number) => `${(p * 100).toFixed(0)}%`, minMove: 0.01 },
+      priceFormat: { type: "custom", formatter: (p: number) => `${(p * 100).toFixed(1)}%`, minMove: 0.001 },
     });
-
-    const latency = showLatency
-      ? chart.addSeries(LineSeries, {
-          color: "rgba(42, 127, 184, 0.7)",
-          lineWidth: 1,
-          priceScaleId: "latency",
-          priceFormat: { type: "custom", formatter: (v: number) => `${Math.round(v)}ms`, minMove: 1 },
-        })
-      : null;
-    if (latency) {
-      chart.priceScale("latency").applyOptions({ visible: false });
-    }
 
     let dead = false;
     let fitted = false;
@@ -65,7 +46,7 @@ export default function ProbChart({ marketId, showLatency }: { marketId: string;
       try {
         const res = await fetch(`/api/market/${marketId}/history`, { cache: "no-store" });
         if (!res.ok || dead) return;
-        const data: { prices: PricePoint[]; telemetry: TelemetryReading[] } = await res.json();
+        const data: { prices: PricePoint[] } = await res.json();
 
         // lightweight-charts wants strictly ascending unique timestamps
         const seen = new Set<number>();
@@ -78,18 +59,6 @@ export default function ProbChart({ marketId, showLatency }: { marketId: string;
           });
         prob.setData(points);
 
-        if (latency) {
-          const seenT = new Set<number>();
-          latency.setData(
-            data.telemetry
-              .map((t) => ({ time: Math.floor(t.ts / 1000) as UTCTimestamp, value: t.p99Ms }))
-              .filter((p) => {
-                if (seenT.has(p.time)) return false;
-                seenT.add(p.time);
-                return true;
-              })
-          );
-        }
         if (!fitted && points.length) {
           chart.timeScale().fitContent();
           fitted = true;
@@ -106,7 +75,7 @@ export default function ProbChart({ marketId, showLatency }: { marketId: string;
       clearInterval(t);
       chart.remove();
     };
-  }, [marketId, showLatency]);
+  }, [marketId]);
 
   return <div ref={ref} className="h-[340px] w-full" />;
 }

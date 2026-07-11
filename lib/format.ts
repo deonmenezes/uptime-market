@@ -1,17 +1,18 @@
 export function fmtPct(p: number): string {
-  return `${Math.round(p * 100)}%`;
+  const v = p * 100;
+  return `${v < 10 && v > 0 ? v.toFixed(1) : Math.round(v)}%`;
 }
 
-export function fmtCredits(n: number): string {
-  if (n >= 100_000) return `${(n / 1000).toFixed(0)}K`;
-  if (n >= 10_000) return `${(n / 1000).toFixed(1)}K`;
-  return n >= 100 ? Math.round(n).toLocaleString() : n.toFixed(1);
+export function fmtUsd(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (abs >= 100_000) return `$${Math.round(n / 1000)}K`;
+  if (abs >= 10_000) return `$${(n / 1000).toFixed(1)}K`;
+  return `$${Math.round(n).toLocaleString()}`;
 }
 
-export function fmtCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return `${Math.round(n)}`;
+export function fmtUsdFull(n: number): string {
+  return `$${Math.round(n).toLocaleString()}`;
 }
 
 export function timeAgo(ts: number, now: number): string {

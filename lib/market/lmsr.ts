@@ -33,7 +33,21 @@ export function sharesForSpend(
   return Math.max(0, dq);
 }
 
-// Credits received for selling `shares` of `side` (shares must be <= holding).
+// Exact cost of buying `shares` of `side` at current quantities.
+export function costForShares(
+  qYes: number,
+  qNo: number,
+  b: number,
+  side: "YES" | "NO",
+  shares: number
+): number {
+  const before = cost(qYes, qNo, b);
+  const after =
+    side === "YES" ? cost(qYes + shares, qNo, b) : cost(qYes, qNo + shares, b);
+  return Math.max(0, after - before);
+}
+
+// Dollars received for selling `shares` of `side` (shares must be <= holding).
 export function proceedsForSale(
   qYes: number,
   qNo: number,

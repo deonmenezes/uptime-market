@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Side, StateSnapshot } from "@/lib/market/types";
 
 const POLL_MS = 2000;
-const NAME_KEY = "um_name";
+const NAME_KEY = "cumulus_name";
+const MODE_KEY = "cumulus_mode";
+
+export type ViewMode = "hedger" | "trader";
 
 export interface FlashInfo {
   dir: "up" | "down";
@@ -14,6 +17,7 @@ export interface FlashInfo {
 export function useStore() {
   const [snap, setSnap] = useState<StateSnapshot | null>(null);
   const [name, setNameState] = useState<string | null>(null);
+  const [mode, setModeState] = useState<ViewMode>("hedger");
   const [flashes, setFlashes] = useState<Record<string, FlashInfo>>({});
   const prevPrices = useRef<Record<string, number>>({});
   const nameRef = useRef<string | null>(null);
@@ -24,6 +28,8 @@ export function useStore() {
       nameRef.current = stored;
       setNameState(stored);
     }
+    const storedMode = localStorage.getItem(MODE_KEY);
+    if (storedMode === "trader" || storedMode === "hedger") setModeState(storedMode);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -53,6 +59,11 @@ export function useStore() {
     const t = setInterval(refresh, POLL_MS);
     return () => clearInterval(t);
   }, [refresh]);
+
+  const setMode = useCallback((m: ViewMode) => {
+    localStorage.setItem(MODE_KEY, m);
+    setModeState(m);
+  }, []);
 
   const setName = useCallback(
     async (n: string) => {
@@ -87,17 +98,26 @@ export function useStore() {
     [refresh]
   );
 
-  const injectIncident = useCallback(
-    async (service: string) => {
-      await fetch("/api/admin/incident", {
+  const hedge = useCallback(
+    async (marketId: string, coverage: number) => {
+      if (!nameRef.current) throw new Error("set a name first");
+      const res = await fetch("/api/hedge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ service }),
+        body: JSON.stringify({ user: nameRef.current, marketId, coverage }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "hedge failed");
       await refresh();
+      return data as { coverage: number; premium: number; rate: number; priceAfter: number };
     },
     [refresh]
   );
+
+  const injectIncident = useCallback(async () => {
+    await fetch("/api/admin/incident", { method: "POST" });
+    await refresh();
+  }, [refresh]);
 
   const settle = useCallback(
     async (marketId: string, outcome: Side) => {
@@ -122,10 +142,23 @@ export function useStore() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "deposit verification failed");
       await refresh();
-      return data as { credits: number; newBalance: number };
+      return data as { usd: number; newBalance: number };
     },
     [refresh]
   );
 
-  return { snap, name, setName, trade, injectIncident, settle, creditDeposit, flashes, refresh };
+  return {
+    snap,
+    name,
+    setName,
+    mode,
+    setMode,
+    trade,
+    hedge,
+    injectIncident,
+    settle,
+    creditDeposit,
+    flashes,
+    refresh,
+  };
 }

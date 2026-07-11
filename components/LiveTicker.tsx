@@ -11,8 +11,10 @@ function tone(e: FeedEvent): string {
       return "text-down";
     case "deposit":
       return "text-info";
+    case "hedge":
+      return "text-updim";
     case "trade":
-      return e.text.includes("YES") ? "text-up" : "text-down";
+      return e.text.includes("NO") ? "text-updim" : "text-down";
     default:
       return "text-fog";
   }
@@ -26,6 +28,8 @@ function glyph(e: FeedEvent): string {
       return "▲";
     case "deposit":
       return "◎";
+    case "hedge":
+      return "🛡";
     case "trade":
       return "→";
     default:

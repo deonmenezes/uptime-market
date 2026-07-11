@@ -13,6 +13,6 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   return NextResponse.json({
     prices: s.priceHistory.get(id) ?? [],
-    telemetry: (s.telemetry.get(m.service) ?? []).slice(-150),
+    readings: s.oracleChain.filter((r) => r.service === m.service).slice(0, 150),
   });
 }

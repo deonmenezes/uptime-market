@@ -1,7 +1,7 @@
 "use client";
 
 import { useMarketStore } from "./StoreContext";
-import { fmtPct, timeAgo } from "@/lib/format";
+import { fmtPct, fmtUsd, timeAgo } from "@/lib/format";
 
 export default function TradeTape({ marketId }: { marketId?: string }) {
   const { snap } = useMarketStore();
@@ -10,31 +10,32 @@ export default function TradeTape({ marketId }: { marketId?: string }) {
     .slice(0, 14);
 
   return (
-    <div className="rounded-md border border-edge bg-panel">
+    <div className="rounded-xl border border-edge bg-panel">
       <div className="border-b border-edge px-3 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fog">
         live tape
       </div>
       <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-fog/50">
-        <span>time</span><span>account</span><span>action</span><span className="text-right">credits</span><span className="text-right">→ prob</span>
+        <span>time</span><span>account</span><span>action</span><span className="text-right">usd</span><span className="text-right">→ prob</span>
       </div>
       <div className="max-h-72 overflow-y-auto">
         {trades.map((t) => {
           const m = snap?.markets.find((x) => x.id === t.marketId);
-          const bullish = (t.action === "buy") === (t.side === "YES");
+          // YES = betting on the outage; NO = writing protection
+          const protective = (t.action === "buy") === (t.side === "NO");
           return (
             <div
               key={t.id}
-              className="tape-row grid grid-cols-[auto_1fr_auto_auto_auto] items-baseline gap-x-4 border-t border-edge/50 px-3 py-1.5 font-mono text-[11px]"
+              className="tape-row grid grid-cols-[auto_1fr_auto_auto_auto] items-baseline gap-x-4 border-t border-edge/60 px-3 py-1.5 font-mono text-[11px]"
             >
               <span className="tabular text-fog/60">{snap ? timeAgo(t.ts, snap.now) : ""}</span>
               <span className="truncate text-fog">
                 {t.user} <span className="text-fog/50">on {m?.ticker ?? t.marketId}</span>
               </span>
-              <span className={bullish ? "text-up" : "text-down"}>
-                {t.action} {t.shares} {t.side}
+              <span className={protective ? "text-updim" : "text-down"}>
+                {t.action} {fmtUsd(t.shares)} {t.side}
               </span>
-              <span className="tabular text-right text-bone">{t.credits}</span>
-              <span className={["tabular text-right", bullish ? "text-up" : "text-down"].join(" ")}>
+              <span className="tabular text-right text-bone">{fmtUsd(t.usd)}</span>
+              <span className={["tabular text-right", protective ? "text-updim" : "text-down"].join(" ")}>
                 {fmtPct(t.priceAfter)}
               </span>
             </div>

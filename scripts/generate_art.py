@@ -170,8 +170,78 @@ def pulse(size:tuple[int,int], seed:int) -> Image.Image:
     return composite(grid,shadow_for(art,w*.025,.06),art,dot_matrix(size,(w*.09,h*.16,w*.36,h*.38),w//70,EMERALD,seed))
 
 
+def cumulus_cloud(size: tuple[int, int], seed: int) -> Image.Image:
+    """A buoyant cloud assembled from softly overlapping translucent lobes."""
+    w, h = size
+    art, d = layer(size)
+    lobes = [
+        (.31, .61, .125), (.40, .50, .155), (.51, .43, .185), (.63, .50, .157),
+        (.72, .60, .115), (.55, .63, .185), (.42, .66, .145),
+    ]
+    for i, (x, y, r) in enumerate(lobes):
+        rr = w * r
+        d.ellipse((x*w-rr, y*h-rr, x*w+rr, y*h+rr), fill=rgba(EMERALD if i % 3 else TEAL, 35 + i*7), outline=rgba(DEEP, 22), width=max(1, w//1900))
+        d.ellipse((x*w-rr*.78, y*h-rr*.84, x*w+rr*.40, y*h+rr*.24), fill=rgba(IVORY, 20))
+    # A restrained warm horizon catches the cloud's underside.
+    d.arc((w*.27, h*.50, w*.76, h*.81), 18, 160, fill=rgba(GOLD, 145), width=w//230)
+    return composite(shadow_for(art, w*.046, .060), art, dot_matrix(size, (w*.11,h*.15,w*.46,h*.45), w//70, EMERALD, seed))
+
+
+def ribbon_stripes(size: tuple[int, int], seed: int) -> Image.Image:
+    """A family of diagonal, slightly bowed routing ribbons."""
+    w, h = size
+    art, d = layer(size)
+    for i in range(8):
+        y = h * (.16 + i*.105)
+        path = bezier([(-w*.10, y+w*.13), (w*.28, y-w*.18), (w*.63, y+w*.20), (w*1.10, y-w*.10)], 120)
+        color = GOLD if i in (2, 6) else (EMERALD if i % 2 else TEAL)
+        curve(d, path, color, 80 if i not in (2, 6) else 145, w//38)
+        curve(d, [(x, y-w*.006) for x, y in path], IVORY, 28, w//150)
+    return composite(shadow_for(art, w*.032, .05), art, dot_matrix(size, (w*.58,h*.57,w*.93,h*.88), w//74, TEAL, seed))
+
+
+def globe_network(size: tuple[int, int], seed: int) -> Image.Image:
+    """A wire globe with latitude/longitude arcs and luminous perimeter nodes."""
+    w, h = size; cx, cy, r = w*.51, h*.53, w*.285
+    art, d = layer(size)
+    # Outer globe and latitude ellipses.
+    d.ellipse((cx-r,cy-r,cx+r,cy+r), outline=rgba(EMERALD, 170), width=w//260)
+    for scale in (.33, .62, .86):
+        d.ellipse((cx-r,cy-r*scale,cx+r,cy+r*scale), outline=rgba(TEAL, 70), width=max(2,w//600))
+    # Longitude ellipses are clipped visually by using only the sphere-height extent.
+    for scale in (.34, .65):
+        d.ellipse((cx-r*scale,cy-r,cx+r*scale,cy+r), outline=rgba(EMERALD, 75), width=max(2,w//600))
+    nodes = [(-.92,-.18),(-.64,-.70),(-.18,-.98),(.45,-.82),(.88,-.35),(.97,.25),(.55,.77),(-.12,.98),(-.72,.63),(-.98,.22)]
+    for i, (nx, ny) in enumerate(nodes):
+        x, y = cx+nx*r, cy+ny*r
+        rr = w*(.010 if i in (2,5,7) else .007)
+        d.ellipse((x-rr*1.8,y-rr*1.8,x+rr*1.8,y+rr*1.8), fill=rgba(IVORY, 225), outline=rgba(EMERALD, 95), width=max(2,w//1500))
+        d.ellipse((x-rr,y-rr,x+rr,y+rr), fill=rgba(GOLD if i in (2,5,7) else EMERALD, 235))
+    return composite(shadow_for(art,w*.038,.055), art, dot_matrix(size,(w*.10,h*.14,w*.42,h*.40),w//72,EMERALD,seed))
+
+
+def hex_knot(size: tuple[int, int], seed: int) -> Image.Image:
+    """A six-sided, over-under braided API knot."""
+    w, h = size; cx, cy, r = w*.50, h*.54, w*.255
+    art, d = layer(size)
+    vertices = [(cx + math.cos(math.radians(-90 + i*60))*r, cy + math.sin(math.radians(-90 + i*60))*r) for i in range(6)]
+    # Three offset loops create the woven, hexagonal centre.
+    for j in range(3):
+        pts = [vertices[(j + i*2) % 6] for i in range(4)]
+        path = bezier([pts[0], pts[1], pts[2], pts[3]], 100)
+        curve(d, path, DEEP, 82, w//34)
+        curve(d, path, EMERALD if j != 1 else TEAL, 180, w//66)
+        curve(d, [(x, y-w*.004) for x, y in path], IVORY, 38, w//180)
+    # Centered hexagonal aperture and discrete warm crossover sparks.
+    inner = [(cx + math.cos(math.radians(-90 + i*60))*r*.28, cy + math.sin(math.radians(-90 + i*60))*r*.28) for i in range(6)]
+    d.polygon(inner, fill=rgba(IVORY, 155), outline=rgba(GOLD, 150), width=w//600)
+    for x,y in vertices[::2]: d.ellipse((x-w*.010,y-w*.010,x+w*.010,y+w*.010), fill=rgba(GOLD, 185))
+    return composite(shadow_for(art,w*.040,.065), art, dot_matrix(size,(w*.60,h*.14,w*.91,h*.44),w//72,TEAL,seed))
+
+
 RENDERERS={"slide-1":chart,"slide-2":network,"slide-3":gauge,"slide-4":platforms,"slide-5":pulse,
-           "checkout-service":gauge,"payments-db":platforms,"api-gateway":network,"incidents":pulse}
+           "checkout-service":gauge,"payments-db":platforms,"api-gateway":network,"incidents":pulse,
+           "aws-us-east-1":cumulus_cloud,"stripe-api":ribbon_stripes,"cloudflare-net":globe_network,"openai-api":hex_knot}
 
 
 def render(name:str, final:tuple[int,int], seed:int, folder:str)->Path:
@@ -185,7 +255,7 @@ def render(name:str, final:tuple[int,int], seed:int, folder:str)->Path:
 
 
 def main()->None:
-    jobs=[(f"slide-{i}",(2400,1350),"slides") for i in range(1,6)] + [(x,(1200,1200),"light") for x in ("checkout-service","payments-db","api-gateway","incidents")]
+    jobs=[(f"slide-{i}",(2400,1350),"slides") for i in range(1,6)] + [(x,(1200,1200),"light") for x in ("checkout-service","payments-db","api-gateway","incidents","aws-us-east-1","stripe-api","cloudflare-net","openai-api")]
     paths=[render(name,size,701+i*101,folder) for i,(name,size,folder) in enumerate(jobs)]
     for path in paths: print(f"{path.relative_to(ROOT)}: {path.stat().st_size:,} bytes")
 

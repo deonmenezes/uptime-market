@@ -9,9 +9,9 @@ const plexSans = IBM_Plex_Sans({ weight: ["400", "500", "600"], subsets: ["latin
 const plexMono = IBM_Plex_Mono({ weight: ["400", "500", "600"], subsets: ["latin"], variable: "--font-plex-mono" });
 
 export const metadata: Metadata = {
-  title: "Uptime Market — the truth, priced live",
+  title: "Cumulus — tradeable downtime protection",
   description:
-    "Internal prediction markets for engineering reliability. Your status reports are optimistic. Your engineers aren't.",
+    "An open market for real downtime protection: hedge cloud outages or sell coverage, settled automatically by telemetry.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -12,5 +12,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "name must be at least 2 characters" }, { status: 400 });
   }
   const u = getOrCreateUser(getState(), name);
-  return NextResponse.json({ name: u.name, credits: u.credits, positions: u.positions });
+  return NextResponse.json({ name: u.name, balanceUsd: u.balanceUsd, positions: u.positions });
 }
