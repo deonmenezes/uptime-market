@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // independently reads the transaction from the chain, so a made-up signature
 // or a transfer to a different address credits nothing.
 export async function POST(req: NextRequest) {
-  ensureOracle();
+  await ensureOracle();
   const body = await req.json().catch(() => null);
   const user = typeof body?.user === "string" ? body.user.trim().slice(0, 24) : "";
   const signature = typeof body?.signature === "string" ? body.signature.trim() : "";

@@ -14,8 +14,8 @@ const MONITOR_LABELS: Record<string, string> = {
   "checkout-service": "checkout-service (sim)",
 };
 
-export function GET(req: NextRequest) {
-  ensureOracle();
+export async function GET(req: NextRequest) {
+  await ensureOracle();
   const s = getState();
   const userName = req.nextUrl.searchParams.get("user");
 

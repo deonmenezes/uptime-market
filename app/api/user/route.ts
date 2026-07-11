@@ -5,7 +5,7 @@ import { ensureOracle } from "@/lib/server/oracle";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  ensureOracle();
+  await ensureOracle();
   const body = await req.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!name || name.length < 2) {

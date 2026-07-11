@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 // The hedger costume: { marketId, coverage } in, { premium, rate } out.
 // Under the hood it is a YES-share purchase on the same LMSR book.
 export async function POST(req: NextRequest) {
-  ensureOracle();
+  await ensureOracle();
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "bad request" }, { status: 400 });
 

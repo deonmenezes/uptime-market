@@ -5,7 +5,7 @@ import { ensureOracle } from "@/lib/server/oracle";
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  ensureOracle();
+  await ensureOracle();
   const { id } = await ctx.params;
   const s = getState();
   const m = s.markets.get(id);

@@ -161,14 +161,17 @@ const g = globalThis as unknown as {
   __cumulusLastReal?: number;
 };
 
-export function ensureOracle() {
+// Awaited from route handlers: on serverless, background timers freeze between
+// requests, so any due work runs (and is awaited) in the request path instead.
+// Only the request that finds a real tick due pays the fetch latency.
+export async function ensureOracle() {
   const s = getState();
   if (!g.__cumulusSimTimer) {
     g.__cumulusSimTimer = setInterval(tickSimTracked, CONFIG.simTickMs);
     g.__cumulusRealTimer = setInterval(() => void tickRealTracked(), CONFIG.realTickMs);
     g.__cumulusLastSim = Date.now();
     pushEvent(s, "system", "oracle online: monitors every 15s, simulator every 2s, every reading sha256-chained");
-    void tickRealTracked();
+    await tickRealTracked();
     return;
   }
   // serverless catch-up: intervals pause when the instance sleeps
@@ -176,5 +179,5 @@ export function ensureOracle() {
   const missedSim = Math.min(30, Math.floor(simGap / CONFIG.simTickMs));
   for (let i = 0; i < missedSim; i++) tickSimTracked();
   const realGap = Date.now() - (g.__cumulusLastReal ?? 0);
-  if (realGap > CONFIG.realTickMs) void tickRealTracked();
+  if (realGap > CONFIG.realTickMs) await tickRealTracked();
 }

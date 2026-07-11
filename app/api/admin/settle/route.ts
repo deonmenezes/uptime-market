@@ -6,7 +6,7 @@ import type { Side } from "@/lib/market/types";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  ensureOracle();
+  await ensureOracle();
   const body = await req.json().catch(() => null);
   const marketId = typeof body?.marketId === "string" ? body.marketId : "";
   const outcome = body?.outcome as Side;

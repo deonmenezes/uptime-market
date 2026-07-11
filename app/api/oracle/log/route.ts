@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 // Tamper-evident settlement history: each reading is hashed with its
 // predecessor's hash. Anyone can re-verify the chain from this endpoint.
-export function GET() {
-  ensureOracle();
+export async function GET() {
+  await ensureOracle();
   const s = getState();
 
   // verify newest -> oldest (chain is stored newest-first)
