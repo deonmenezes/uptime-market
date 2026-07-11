@@ -49,10 +49,23 @@ export interface Position {
   premiumEarned: number;
 }
 
+// Recorded at settlement for every winning position — powers the
+// "paid instantly, no claim filed" moment in the UI.
+export interface PayoutRecord {
+  marketId: string;
+  ticker: string;
+  question: string;
+  outcome: Side;
+  amountUsd: number;
+  settledNote: string;
+  ts: number;
+}
+
 export interface UserAccount {
   name: string;
   balanceUsd: number;
   positions: Record<string, Position>;
+  payouts: PayoutRecord[];
   usedSignatures: string[];
   wallet: string | null;
   createdTs: number;
@@ -116,6 +129,7 @@ export interface StateSnapshot {
     name: string;
     balanceUsd: number;
     positions: Record<string, Position>;
+    payouts: PayoutRecord[];
   } | null;
   oracleChainLength: number;
   treasury: string;

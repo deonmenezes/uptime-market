@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Sora, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
+import PayoutBanner from "@/components/PayoutBanner";
 import { StoreProvider } from "@/components/StoreContext";
 
 const sora = Sora({ weight: ["400", "600", "700"], subsets: ["latin"], variable: "--font-sora" });
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="antialiased">
         <StoreProvider>
           <Header />
+          <PayoutBanner />
           {children}
         </StoreProvider>
       </body>

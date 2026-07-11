@@ -3,6 +3,7 @@ import type {
   FeedEvent,
   Market,
   OracleReading,
+  PayoutRecord,
   PricePoint,
   Side,
   TradeRecord,
@@ -26,6 +27,9 @@ export const CONFIG = {
   openaiMinReadings: 60,
   // stripe cumulative downtime trigger (readings at ~15s cadence; 120 ≈ 30 min)
   stripeDownReadings: 120,
+  // a monitor failure only counts toward settlement after this many consecutive
+  // failing readings — one egress blip from our own runtime is not an outage
+  monitorConfirmFails: 2,
 } as const;
 
 export interface AppState {
@@ -34,8 +38,9 @@ export interface AppState {
   priceHistory: Map<string, PricePoint[]>;
   oracleChain: OracleReading[];
   lastByService: Map<string, OracleReading>;
-  downReadings: Map<string, number>; // per service, cumulative "not ok" real readings
+  downReadings: Map<string, number>; // per service, cumulative confirmed "not ok" real readings
   upReadings: Map<string, number>;
+  consecFails: Map<string, number>; // per service, current consecutive failing readings
   simIncidentTicks: number; // remaining ticks of the injected demo incident
   simConsecutiveDown: number;
   trades: TradeRecord[];
@@ -130,6 +135,7 @@ function makeUser(name: string, isBot = false): UserAccount {
     name,
     balanceUsd: isBot ? CONFIG.botBalanceUsd : CONFIG.startingBalanceUsd,
     positions: {},
+    payouts: [],
     usedSignatures: [],
     wallet: null,
     createdTs: Date.now(),
@@ -146,6 +152,7 @@ function seedState(): AppState {
     lastByService: new Map(),
     downReadings: new Map(),
     upReadings: new Map(),
+    consecFails: new Map(),
     simIncidentTicks: 0,
     simConsecutiveDown: 0,
     trades: [],
@@ -304,7 +311,7 @@ export function executeTrade(
     pushEvent(
       s,
       "trade",
-      `${userName} ${action === "buy" ? "bought" : "sold"} $${Math.round(shares).toLocaleString()} ${side} on ${m.ticker} → ${(p * 100).toFixed(1)}%`,
+      `${userName} ${action === "buy" ? "bought" : "sold"} $${Math.round(usd).toLocaleString()} of ${side} on ${m.ticker} → ${(p * 100).toFixed(1)}%`,
       marketId
     );
   }
@@ -378,6 +385,16 @@ export function settleMarket(s: AppState, marketId: string, outcome: Side, note:
     if (winning > 0) {
       u.balanceUsd += winning; // $1 per winning share, instantly — no claims process
       paidOut += winning;
+      u.payouts.unshift({
+        marketId,
+        ticker: m.ticker,
+        question: m.question,
+        outcome,
+        amountUsd: Math.round(winning * 100) / 100,
+        settledNote: note,
+        ts: m.settledTs!,
+      } satisfies PayoutRecord);
+      if (u.payouts.length > 20) u.payouts.pop();
     }
     pos.yes = 0;
     pos.no = 0;

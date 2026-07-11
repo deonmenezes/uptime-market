@@ -87,7 +87,12 @@ export async function GET(req: NextRequest) {
     events: s.events.slice(0, 30),
     leaderboard,
     user: u
-      ? { name: u.name, balanceUsd: Math.round(u.balanceUsd * 100) / 100, positions: u.positions }
+      ? {
+          name: u.name,
+          balanceUsd: Math.round(u.balanceUsd * 100) / 100,
+          positions: u.positions,
+          payouts: u.payouts ?? [],
+        }
       : null,
     oracleChainLength: s.oracleChain.length,
     treasury: CONFIG.treasury,

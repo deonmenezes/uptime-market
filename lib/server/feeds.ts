@@ -13,13 +13,18 @@ export interface RawSignal {
 }
 
 const TIMEOUT_MS = 8000;
+const RETRY_TIMEOUT_MS = 4000;
 
-async function timedFetch(url: string, init?: RequestInit): Promise<{ res: Response | null; ms: number }> {
+async function timedFetch(
+  url: string,
+  init?: RequestInit,
+  timeoutMs = TIMEOUT_MS
+): Promise<{ res: Response | null; ms: number }> {
   const started = Date.now();
   try {
     const res = await fetch(url, {
       ...init,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       cache: "no-store",
       headers: { "user-agent": "cumulus-oracle/0.1", ...init?.headers },
     });
@@ -29,11 +34,20 @@ async function timedFetch(url: string, init?: RequestInit): Promise<{ res: Respo
   }
 }
 
+// Monitors get one immediate retry on a network-level failure: a single
+// timeout is as likely to be our runtime's egress as the target's outage.
+// A real outage fails both attempts (and the next tick, and the one after).
+async function monitorFetch(url: string): Promise<{ res: Response | null; ms: number }> {
+  const first = await timedFetch(url);
+  if (first.res !== null) return first;
+  return timedFetch(url, undefined, RETRY_TIMEOUT_MS);
+}
+
 // ---- synthetic monitors: ping the actual API edge. Any HTTP answer < 500
 // (including 401) proves the service is up and gives a real latency number.
 
 export async function monitorStripe(): Promise<RawSignal> {
-  const { res, ms } = await timedFetch("https://api.stripe.com/v1/charges");
+  const { res, ms } = await monitorFetch("https://api.stripe.com/v1/charges");
   const ok = res !== null && res.status < 500;
   return {
     service: "stripe-api",
@@ -47,7 +61,7 @@ export async function monitorStripe(): Promise<RawSignal> {
 }
 
 export async function monitorOpenAI(): Promise<RawSignal> {
-  const { res, ms } = await timedFetch("https://api.openai.com/v1/models");
+  const { res, ms } = await monitorFetch("https://api.openai.com/v1/models");
   const ok = res !== null && res.status < 500;
   return {
     service: "openai-api",

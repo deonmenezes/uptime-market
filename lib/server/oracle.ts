@@ -66,11 +66,25 @@ async function realTick(s: AppState) {
     });
     if (!sig.known) continue; // unreachable feed never settles anything
     if (sig.ok) {
+      s.consecFails.set(sig.service, 0);
       s.upReadings.set(sig.service, (s.upReadings.get(sig.service) ?? 0) + 1);
     } else {
-      s.downReadings.set(sig.service, (s.downReadings.get(sig.service) ?? 0) + 1);
-      if ((s.downReadings.get(sig.service) ?? 0) === 1) {
-        pushEvent(s, "incident", `oracle: degradation detected on ${sig.service} (${sig.summary})`);
+      // Debounce: a lone failing reading (already retried once inside the
+      // monitor) counts as neither up nor down — it's as likely our own
+      // egress as a real outage. Once the streak reaches the confirmation
+      // threshold, credit the full streak so cumulative-downtime accounting
+      // stays accurate for real outages, which persist across ticks.
+      const fails = (s.consecFails.get(sig.service) ?? 0) + 1;
+      s.consecFails.set(sig.service, fails);
+      if (fails === CONFIG.monitorConfirmFails) {
+        s.downReadings.set(sig.service, (s.downReadings.get(sig.service) ?? 0) + fails);
+        pushEvent(
+          s,
+          "incident",
+          `oracle: degradation confirmed on ${sig.service} — ${fails} consecutive failing readings (${sig.summary})`
+        );
+      } else if (fails > CONFIG.monitorConfirmFails) {
+        s.downReadings.set(sig.service, (s.downReadings.get(sig.service) ?? 0) + 1);
       }
     }
   }

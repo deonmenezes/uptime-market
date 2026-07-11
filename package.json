@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:lmsr": "tsc lib/market/lmsr.ts --outDir .lmsr-build --module commonjs --target es2022 && node scripts/lmsr_invariants.test.cjs"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
