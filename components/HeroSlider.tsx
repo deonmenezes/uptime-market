@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import DowntimeGlobe from "./DowntimeGlobe";
 
-const SLIDES = [
+// slide 0 is the live globe — real oracle telemetry, not artwork
+const SLIDES: Array<{ src?: string; caption: string }> = [
+  { caption: "Live oracle telemetry, mapped to the regions it watches" },
   { src: "/art/slides/slide-1.png", caption: "Live probability, priced by the people on call" },
   { src: "/art/slides/slide-2.png", caption: "Every service, every region, one market" },
   { src: "/art/slides/slide-3.png", caption: "Telemetry is the oracle — no committee, no dispute" },
@@ -11,6 +14,7 @@ const SLIDES = [
 ];
 
 const INTERVAL_MS = 5000;
+const GLOBE_INTERVAL_MS = 9000; // let the globe spin a while before advancing
 
 export default function HeroSlider() {
   const [idx, setIdx] = useState(0);
@@ -18,9 +22,12 @@ export default function HeroSlider() {
 
   useEffect(() => {
     if (paused) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % SLIDES.length), INTERVAL_MS);
-    return () => clearInterval(t);
-  }, [paused]);
+    const t = setTimeout(
+      () => setIdx((i) => (i + 1) % SLIDES.length),
+      idx === 0 ? GLOBE_INTERVAL_MS : INTERVAL_MS
+    );
+    return () => clearTimeout(t);
+  }, [paused, idx]);
 
   return (
     <div
@@ -31,20 +38,24 @@ export default function HeroSlider() {
       <div className="relative aspect-[16/9]">
         {SLIDES.map((s, i) => (
           <div
-            key={s.src}
+            key={s.src ?? "globe"}
             className={[
               "absolute inset-0 transition-opacity duration-700",
-              i === idx ? "slide-active opacity-100" : "opacity-0",
+              i === idx ? "slide-active opacity-100" : "pointer-events-none opacity-0",
             ].join(" ")}
           >
-            {/* plain img: static export-friendly, no next/image loader needed */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={s.src}
-              alt={s.caption}
-              className="slide-img h-full w-full object-cover"
-              loading={i === 0 ? "eager" : "lazy"}
-            />
+            {s.src ? (
+              /* plain img: static export-friendly, no next/image loader needed */
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={s.src}
+                alt={s.caption}
+                className="slide-img h-full w-full object-cover"
+                loading={i <= 1 ? "eager" : "lazy"}
+              />
+            ) : (
+              <DowntimeGlobe />
+            )}
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/95 via-white/60 to-transparent px-5 pb-4 pt-10">
               <p className="text-sm font-medium text-bone">{s.caption}</p>
             </div>
