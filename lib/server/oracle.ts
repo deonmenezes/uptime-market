@@ -113,6 +113,27 @@ function evaluateRealSettlements(s: AppState) {
     settleMarket(s, "stripe-30m", "YES", `synthetic monitor logged ${stripeDown} failed checks (≈${Math.round((stripeDown * CONFIG.realTickMs) / 60000)} min of downtime)`);
   }
 
+  // Fortnite/Epic: major/critical indicator on the Epic Games status page
+  const epic = s.markets.get("epic-fortnite");
+  const epicLast = s.lastByService.get("epic-fortnite");
+  if (epic?.status === "open" && epicLast && epicLast.indicator !== "feed-unreachable" && !epicLast.ok) {
+    settleMarket(s, "epic-fortnite", "YES", `status.epicgames.com reported ${epicLast.indicator} (reading ${epicLast.hash.slice(0, 12)})`);
+  }
+
+  // Netflix: cumulative failed monitor checks past 30 minutes
+  const nflx = s.markets.get("netflix-30m");
+  const nflxDown = s.downReadings.get("netflix-cdn") ?? 0;
+  if (nflx?.status === "open" && nflxDown >= CONFIG.stripeDownReadings) {
+    settleMarket(s, "netflix-30m", "YES", `synthetic monitor logged ${nflxDown} failed checks (≈${Math.round((nflxDown * CONFIG.realTickMs) / 60000)} min of downtime)`);
+  }
+
+  // Valorant: cumulative failed checks against the Riot auth edge
+  const val = s.markets.get("riot-valorant");
+  const valDown = s.downReadings.get("riot-valorant") ?? 0;
+  if (val?.status === "open" && valDown >= CONFIG.stripeDownReadings) {
+    settleMarket(s, "riot-valorant", "YES", `synthetic monitor logged ${valDown} failed checks against auth.riotgames.com (≈${Math.round((valDown * CONFIG.realTickMs) / 60000)} min of downtime)`);
+  }
+
   // OpenAI: measured weekly availability under the SLO
   const oai = s.markets.get("openai-slo");
   const up = s.upReadings.get("openai-api") ?? 0;

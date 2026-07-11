@@ -11,5 +11,8 @@ export const SOURCES: Record<string, SourceInfo> = {
   "stripe-api": { provider: "Stripe", logo: "/logos/stripe.svg", dark: true },
   "cloudflare-net": { provider: "Cloudflare", logo: "/logos/cloudflare.svg" },
   "openai-api": { provider: "OpenAI", logo: "/logos/openai.svg", dark: true },
+  "epic-fortnite": { provider: "Epic Games", logo: "/logos/epicgames.svg", dark: true },
+  "netflix-cdn": { provider: "Netflix", logo: "/logos/netflix.svg" },
+  "riot-valorant": { provider: "Riot Games", logo: "/logos/valorant.svg" },
   "checkout-service": { provider: "Simulated", logo: "/logos/grafana.svg" },
 };

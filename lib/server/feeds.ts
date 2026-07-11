@@ -74,7 +74,61 @@ export async function monitorOpenAI(): Promise<RawSignal> {
   };
 }
 
+export async function monitorNetflix(): Promise<RawSignal> {
+  const { res, ms } = await monitorFetch("https://www.netflix.com/");
+  const ok = res !== null && res.status < 500;
+  return {
+    service: "netflix-cdn",
+    source: "monitor:netflix",
+    ok,
+    known: true,
+    latencyMs: res ? ms : null,
+    indicator: res ? `http ${res.status}` : "timeout",
+    summary: res ? `netflix.com answered ${res.status} in ${ms}ms` : "netflix.com unreachable",
+  };
+}
+
+export async function monitorRiot(): Promise<RawSignal> {
+  // Riot auth edge fronts login for Valorant/LoL — any HTTP answer proves it's up
+  const { res, ms } = await monitorFetch("https://auth.riotgames.com/");
+  const ok = res !== null && res.status < 500;
+  return {
+    service: "riot-valorant",
+    source: "monitor:riot",
+    ok,
+    known: true,
+    latencyMs: res ? ms : null,
+    indicator: res ? `http ${res.status}` : "timeout",
+    summary: res ? `auth.riotgames.com answered ${res.status} in ${ms}ms` : "auth.riotgames.com unreachable",
+  };
+}
+
 // ---- public status feeds (statuspage.io JSON + AWS health events)
+
+export async function feedEpic(): Promise<RawSignal> {
+  const { res, ms } = await timedFetch("https://status.epicgames.com/api/v2/status.json");
+  if (!res || !res.ok) {
+    return {
+      service: "epic-fortnite", source: "feed:epic", ok: true, known: false,
+      latencyMs: null, indicator: null, summary: "epic games status feed unreachable",
+    };
+  }
+  try {
+    const data = (await res.json()) as { status?: { indicator?: string; description?: string } };
+    const indicator = data.status?.indicator ?? "unknown";
+    const breach = indicator === "major" || indicator === "critical";
+    return {
+      service: "epic-fortnite", source: "feed:epic", ok: !breach, known: true,
+      latencyMs: ms, indicator,
+      summary: `status.epicgames.com indicator=${indicator} (${data.status?.description ?? ""})`,
+    };
+  } catch {
+    return {
+      service: "epic-fortnite", source: "feed:epic", ok: true, known: false,
+      latencyMs: ms, indicator: null, summary: "epic games status feed parse error",
+    };
+  }
+}
 
 export async function feedCloudflare(): Promise<RawSignal> {
   const { res, ms } = await timedFetch("https://www.cloudflarestatus.com/api/v2/status.json");
@@ -149,7 +203,15 @@ export async function feedAws(): Promise<RawSignal> {
 }
 
 export async function collectSignals(): Promise<RawSignal[]> {
-  const results = await Promise.allSettled([monitorStripe(), monitorOpenAI(), feedCloudflare(), feedAws()]);
+  const results = await Promise.allSettled([
+    monitorStripe(),
+    monitorOpenAI(),
+    monitorNetflix(),
+    monitorRiot(),
+    feedCloudflare(),
+    feedAws(),
+    feedEpic(),
+  ]);
   return results
     .filter((r): r is PromiseFulfilledResult<RawSignal> => r.status === "fulfilled")
     .map((r) => r.value);

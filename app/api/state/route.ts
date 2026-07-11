@@ -11,6 +11,9 @@ const MONITOR_LABELS: Record<string, string> = {
   "stripe-api": "Stripe API",
   "cloudflare-net": "Cloudflare",
   "openai-api": "OpenAI API",
+  "epic-fortnite": "Fortnite / Epic",
+  "netflix-cdn": "Netflix",
+  "riot-valorant": "Valorant login",
   "checkout-service": "checkout-service (sim)",
 };
 

@@ -1,7 +1,15 @@
 export type Side = "YES" | "NO";
 export type MarketStatus = "open" | "settled";
 export type SettlementMode = "auto" | "manual";
-export type OracleSource = "aws-feed" | "cloudflare-feed" | "stripe-monitor" | "openai-monitor" | "simulator";
+export type OracleSource =
+  | "aws-feed"
+  | "cloudflare-feed"
+  | "stripe-monitor"
+  | "openai-monitor"
+  | "epic-feed"
+  | "netflix-monitor"
+  | "riot-monitor"
+  | "simulator";
 
 export interface OracleReading {
   ts: number;
