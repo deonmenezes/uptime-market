@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# pred.fun
 
-## Getting Started
+A degen-styled prediction market UI. Original implementation inspired by launchpad-board layouts: dense live card grid, trade ticker, king of the hill, candlestick market pages, bonding-curve graduation mechanic.
 
-First, run the development server:
+**Demo mode**: all market data is simulated client-side by `lib/engine.ts` so the whole thing feels alive with zero backend.
+
+## Run
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Where things live
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `lib/engine.ts` - the fake exchange. Deterministic seed data (SSR-safe), then a client-side interval emits trades, comments, and new markets. This is the ONLY file to replace when wiring a real backend.
+- `lib/useEngine.ts` - React binding (useSyncExternalStore) + a mounted-gated `useNow()` for relative timestamps.
+- `components/Board.tsx` - home board: ticker, king of the hill, filters, live grid.
+- `components/Chart.tsx` - lightweight-charts candlesticks fed by engine events.
+- `components/TradePanel.tsx` - YES/NO buy/sell panel (simulated fills).
+- `app/m/[id]/page.tsx` - market page. `app/create/page.tsx` - launch form.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Swapping in a real backend
 
-## Learn More
+The engine exposes exactly the surface a real service needs to provide:
 
-To learn more about Next.js, take a look at the following resources:
+1. Replace seed data with a REST fetch (markets, candles, tape, comments, holders).
+2. Replace the `setInterval` in `engine.start()` with a WebSocket subscription (Supabase Realtime, Socket.io, or a Helius/Geyser-fed relay) that calls the same `emit({type: "trade" | "market" | "comment"})` handlers.
+3. Replace `userTrade`/`createMarket` with signed transactions.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Everything downstream (flashing cards, chart updates, tape, ticker) already listens to those events and will keep working unchanged.
