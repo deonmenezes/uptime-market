@@ -1,85 +1,104 @@
 "use client";
 
 import Link from "next/link";
-import type { Market } from "@/lib/types";
-import { fmtSol, fmtCents, fmtCompact, timeAgo, shortWallet } from "@/lib/format";
+import type { MarketView } from "@/lib/market/types";
+import type { FlashInfo } from "@/lib/client/useStore";
+import { fmtCredits, fmtPct } from "@/lib/format";
+import Sparkline from "./Sparkline";
 
 export default function MarketCard({
   market,
-  now,
-  animations,
+  flash,
 }: {
-  market: Market;
-  now: number | null;
-  animations: boolean;
+  market: MarketView;
+  flash: FlashInfo | undefined;
 }) {
-  const t = market.lastTrade;
-  const flashKey = t ? t.id : "none";
-  const buyYes = t ? (t.action === "buy") === (t.side === "YES") : true;
-  const fresh = t && now !== null && now - t.ts < 1200;
+  const settled = market.status === "settled";
 
   return (
     <Link
-      key={flashKey}
+      key={flash?.at ?? "static"}
       href={`/m/${market.id}`}
       className={[
-        "group block rounded-sm border border-edge bg-panel p-3 transition-colors hover:border-lime/60",
-        t && animations ? (buyYes ? "animate-flash-yes" : "animate-flash-no") : "",
-        fresh && animations ? "animate-shake" : "",
+        "group relative block overflow-hidden rounded-md border bg-panel transition-colors",
+        settled
+          ? market.outcome === "YES"
+            ? "border-up/50"
+            : "border-down/50"
+          : "border-edge hover:border-up/50",
+        flash && !settled ? (flash.dir === "up" ? "animate-flash-up" : "animate-flash-down") : "",
       ].join(" ")}
     >
-      <div className="flex gap-3">
-        {/* deterministic gradient tile instead of an uploaded image */}
+      {/* codex-rendered service artwork banner */}
+      <div className="relative h-20 overflow-hidden">
         <div
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-sm border border-edge2 text-3xl"
+          className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
           style={{
-            background: `linear-gradient(135deg, hsl(${market.hue} 70% 18%), hsl(${(market.hue + 40) % 360} 80% 8%))`,
+            backgroundImage: `url(/art/${market.service}.png), linear-gradient(135deg, #0c3b2e, #081f18)`,
+            backgroundSize: "cover, cover",
+            backgroundPosition: "center 40%, center",
           }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-panel via-panel/30 to-transparent" />
+        <span className="absolute left-3 top-2.5 rounded-sm bg-ink/70 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-fog backdrop-blur-sm">
+          {market.service}
+        </span>
+        <span
+          className={[
+            "absolute right-3 top-2.5 rounded-sm px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.15em] backdrop-blur-sm",
+            settled
+              ? market.outcome === "YES"
+                ? "bg-up/20 text-up"
+                : "bg-down/20 text-down"
+              : market.settlement === "auto"
+                ? "bg-ink/70 text-info"
+                : "bg-ink/70 text-gold",
+          ].join(" ")}
         >
-          {market.emoji}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="truncate font-mono text-[10px] uppercase tracking-widest text-fog">
-              {market.ticker} · by {shortWallet(market.creator)}
-            </span>
-            <span className="shrink-0 font-mono text-[10px] text-fog">
-              {now !== null ? `${timeAgo(market.createdTs, now)} ago` : "…"}
-            </span>
-          </div>
-
-          <p className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-tight text-bone group-hover:text-lime">
-            {market.question}
-          </p>
-
-          <div className="mt-1.5 flex items-center gap-3 font-mono text-[11px]">
-            <span className="text-lime">YES {fmtCents(market.yesCents)}</span>
-            <span className="text-hot">NO {fmtCents(100 - market.yesCents)}</span>
-            <span className="ml-auto text-fog">vol {fmtSol(market.volumeSol)} ◎</span>
-          </div>
-        </div>
+          {settled ? `settled ${market.outcome}` : market.settlement === "auto" ? "oracle-settled" : "manual settle"}
+        </span>
       </div>
 
-      {/* graduation progress */}
-      <div className="mt-2.5">
-        <div className="flex justify-between font-mono text-[10px] text-fog">
-          <span>graduation</span>
-          <span>{market.graduationPct}%</span>
+      <div className="p-3.5 pt-2">
+        <p className="min-h-[2.4rem] text-[13.5px] font-semibold leading-snug text-bone group-hover:text-up">
+          {market.question}
+        </p>
+
+        <div className="mt-2 flex items-end justify-between gap-3">
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-fog">yes probability</div>
+            <div
+              className={[
+                "tabular font-display text-4xl font-bold leading-none",
+                settled
+                  ? market.outcome === "YES"
+                    ? "text-up"
+                    : "text-down"
+                  : market.price >= 0.5
+                    ? "text-up"
+                    : "text-down",
+              ].join(" ")}
+            >
+              {fmtPct(market.price)}
+            </div>
+          </div>
+          <Sparkline data={market.spark} />
         </div>
-        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink">
+
+        {/* probability bar */}
+        <div className="mt-2.5 flex h-1.5 overflow-hidden rounded-full bg-ink">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-limedim to-lime transition-[width] duration-500"
-            style={{ width: `${market.graduationPct}%` }}
+            className="h-full bg-up transition-[width] duration-700"
+            style={{ width: `${market.price * 100}%` }}
           />
+          <div className="h-full flex-1 bg-down/50" />
         </div>
-      </div>
 
-      <div className="mt-2 flex items-center gap-3 font-mono text-[10px] uppercase tracking-wider text-fog">
-        <span>💬 {fmtCompact(market.replies)}</span>
-        <span>👤 {fmtCompact(market.holders)}</span>
-        <span className="ml-auto rounded-sm border border-edge2 px-1 py-px">{market.category}</span>
-        <span className="text-amber">⏱ {market.endsLabel}</span>
+        <div className="tabular mt-2.5 flex items-center gap-3 font-mono text-[10px] uppercase tracking-wider text-fog">
+          <span>{market.ticker}</span>
+          <span>{fmtCredits(market.volumeCredits)} cr vol</span>
+          <span className="ml-auto text-gold">{settled ? market.settledNote?.slice(0, 24) : market.closesLabel}</span>
+        </div>
       </div>
     </Link>
   );

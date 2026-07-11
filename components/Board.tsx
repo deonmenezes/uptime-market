@@ -1,70 +1,70 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useEngine, useNow } from "@/lib/useEngine";
-import type { Category } from "@/lib/types";
+import { useMarketStore } from "./StoreContext";
+import StatusStrip from "./StatusStrip";
 import LiveTicker from "./LiveTicker";
-import KingOfTheHill from "./KingOfTheHill";
-import FilterBar, { type SortKey } from "./FilterBar";
 import MarketCard from "./MarketCard";
+import Leaderboard from "./Leaderboard";
+import OpsConsole from "./OpsConsole";
+import NameGate from "./NameGate";
+import TradeTape from "./TradeTape";
 
 export default function Board() {
-  const engine = useEngine();
-  const now = useNow();
-  const [sort, setSort] = useState<SortKey>("featured");
-  const [cat, setCat] = useState<Category | "all">("all");
-  const [animations, setAnimations] = useState(true);
-
-  const markets = useMemo(() => {
-    let list = engine.order.map((id) => engine.markets.get(id)!);
-    if (cat !== "all") list = list.filter((m) => m.category === cat);
-    switch (sort) {
-      case "new":
-        list = [...list].sort((a, b) => b.createdTs - a.createdTs);
-        break;
-      case "volume":
-        list = [...list].sort((a, b) => b.volumeSol - a.volumeSol);
-        break;
-      case "graduating":
-        list = [...list].sort((a, b) => b.graduationPct - a.graduationPct);
-        break;
-      default:
-        list = [...list].sort((a, b) => b.vol5mSol - a.vol5mSol);
-    }
-    return list;
-    // engine.version (via useEngine re-render) is what refreshes this memo
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine.version, sort, cat]);
+  const { snap, flashes } = useMarketStore();
 
   return (
     <main>
+      <NameGate />
+      <StatusStrip />
       <LiveTicker />
 
-      <div className="mx-auto max-w-7xl px-4 pb-24">
-        <div className="py-6">
-          <KingOfTheHill market={engine.king()} />
-        </div>
-
-        <div className="mb-4 text-center font-display text-2xl tracking-wide text-fog">
-          <span className="text-lime animate-blink">█</span> bet on anything. every outcome is a coin.{" "}
-          <span className="text-lime animate-blink">█</span>
-        </div>
-
-        <FilterBar
-          sort={sort}
-          setSort={setSort}
-          cat={cat}
-          setCat={setCat}
-          animations={animations}
-          setAnimations={setAnimations}
+      {/* masthead over the codex hero render */}
+      <section className="relative overflow-hidden border-b border-edge">
+        <div
+          className="absolute inset-0 opacity-70"
+          style={{
+            backgroundImage: "url(/art/hero.png), linear-gradient(120deg, #0c3b2e, #081f18)",
+            backgroundSize: "cover, cover",
+            backgroundPosition: "center, center",
+          }}
         />
+        <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/80 to-ink/30" />
+        <div className="relative mx-auto max-w-7xl px-4 py-10">
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-up">
+            internal prediction markets · engineering reliability
+          </p>
+          <h1 className="mt-2 max-w-2xl font-display text-3xl font-bold leading-tight text-bone md:text-4xl">
+            Your status reports are optimistic.{" "}
+            <span className="text-up">Your engineers aren&apos;t.</span>
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-fog">
+            Private knowledge becomes public information the moment someone trades on it. Settlement
+            is a machine reading telemetry — no committee, no dispute.
+          </p>
+        </div>
+      </section>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {markets.map((m) => (
-            <div key={m.id} className={m.createdTs > (now ?? Infinity) - 4000 ? "animate-pop-in" : ""}>
-              <MarketCard market={m} now={now} animations={animations} />
+      <div className="mx-auto max-w-7xl px-4 pb-24">
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_300px]">
+          <div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {(snap?.markets ?? []).map((m) => (
+                <MarketCard key={m.id} market={m} flash={flashes[m.id]} />
+              ))}
+              {!snap &&
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-64 animate-pulse rounded-md border border-edge bg-panel" />
+                ))}
             </div>
-          ))}
+            <div className="mt-4">
+              <TradeTape />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <Leaderboard />
+            <OpsConsole />
+          </div>
         </div>
       </div>
     </main>

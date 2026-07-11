@@ -1,41 +1,48 @@
 "use client";
 
-import { useEngine, useNow } from "@/lib/useEngine";
-import { fmtSol, fmtCents, timeAgo } from "@/lib/format";
+import { useMarketStore } from "./StoreContext";
+import { fmtPct, timeAgo } from "@/lib/format";
 
-export default function TradeTape({ marketId }: { marketId: string }) {
-  const engine = useEngine();
-  const now = useNow();
-  const trades = engine.tape.filter((t) => t.marketId === marketId).slice(0, 20);
+export default function TradeTape({ marketId }: { marketId?: string }) {
+  const { snap } = useMarketStore();
+  const trades = (snap?.trades ?? [])
+    .filter((t) => !marketId || t.marketId === marketId)
+    .slice(0, 14);
 
   return (
-    <div className="rounded-sm border border-edge bg-panel">
-      <div className="border-b border-edge px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-fog">
-        trades
+    <div className="rounded-md border border-edge bg-panel">
+      <div className="border-b border-edge px-3 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fog">
+        live tape
       </div>
-      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-fog/60">
-        <span>account</span><span>side</span><span className="text-right">sol</span><span className="text-right">time</span>
+      <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-fog/50">
+        <span>time</span><span>account</span><span>action</span><span className="text-right">credits</span><span className="text-right">→ prob</span>
       </div>
-      <div className="max-h-64 overflow-y-auto">
-        {trades.length === 0 && (
-          <p className="px-3 py-4 text-center font-mono text-[11px] text-fog/60">no trades yet — be first</p>
-        )}
+      <div className="max-h-72 overflow-y-auto">
         {trades.map((t) => {
-          const buyYes = (t.action === "buy") === (t.side === "YES");
+          const m = snap?.markets.find((x) => x.id === t.marketId);
+          const bullish = (t.action === "buy") === (t.side === "YES");
           return (
             <div
               key={t.id}
-              className="tape-row grid grid-cols-[1fr_auto_auto_auto] gap-x-4 border-t border-edge/50 px-3 py-1.5 font-mono text-[11px]"
+              className="tape-row grid grid-cols-[auto_1fr_auto_auto_auto] items-baseline gap-x-4 border-t border-edge/50 px-3 py-1.5 font-mono text-[11px]"
             >
-              <span className="truncate text-fog">{t.wallet}</span>
-              <span className={buyYes ? "text-lime" : "text-hot"}>
-                {t.action} {t.side} @ {fmtCents(t.priceCents)}
+              <span className="tabular text-fog/60">{snap ? timeAgo(t.ts, snap.now) : ""}</span>
+              <span className="truncate text-fog">
+                {t.user} <span className="text-fog/50">on {m?.ticker ?? t.marketId}</span>
               </span>
-              <span className="text-right text-bone">{fmtSol(t.sol)} ◎</span>
-              <span className="text-right text-fog/70">{now !== null ? timeAgo(t.ts, now) : "…"}</span>
+              <span className={bullish ? "text-up" : "text-down"}>
+                {t.action} {t.shares} {t.side}
+              </span>
+              <span className="tabular text-right text-bone">{t.credits}</span>
+              <span className={["tabular text-right", bullish ? "text-up" : "text-down"].join(" ")}>
+                {fmtPct(t.priceAfter)}
+              </span>
             </div>
           );
         })}
+        {!trades.length && (
+          <p className="px-3 py-4 text-center font-mono text-[11px] text-fog/60">no trades yet</p>
+        )}
       </div>
     </div>
   );

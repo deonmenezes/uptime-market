@@ -1,38 +1,55 @@
 "use client";
 
-import Link from "next/link";
-import { useEngine } from "@/lib/useEngine";
-import { fmtSol, fmtCents } from "@/lib/format";
+import { useMarketStore } from "./StoreContext";
+import type { FeedEvent } from "@/lib/market/types";
 
+function tone(e: FeedEvent): string {
+  switch (e.kind) {
+    case "settle":
+      return "text-gold";
+    case "incident":
+      return "text-down";
+    case "deposit":
+      return "text-info";
+    case "trade":
+      return e.text.includes("YES") ? "text-up" : "text-down";
+    default:
+      return "text-fog";
+  }
+}
+
+function glyph(e: FeedEvent): string {
+  switch (e.kind) {
+    case "settle":
+      return "⚖";
+    case "incident":
+      return "▲";
+    case "deposit":
+      return "◎";
+    case "trade":
+      return "→";
+    default:
+      return "·";
+  }
+}
+
+// The pump.fun marquee, repurposed: every trade, incident and settlement scrolls by.
 export default function LiveTicker() {
-  const engine = useEngine();
-  const items = engine.tape.slice(0, 18);
+  const { snap } = useMarketStore();
+  const items = (snap?.events ?? []).slice(0, 16);
+  if (!items.length) return null;
 
   return (
     <div className="overflow-hidden border-b border-edge bg-panel">
-      <div className="flex w-max animate-marquee items-center gap-8 py-1.5 pr-8 hover:[animation-play-state:paused]">
+      <div className="flex w-max animate-marquee items-center gap-10 py-1.5 pr-10 hover:[animation-play-state:paused]">
         {[0, 1].map((dup) => (
-          <div key={dup} className="flex items-center gap-8" aria-hidden={dup === 1}>
-            {items.map((t) => {
-              const m = engine.markets.get(t.marketId);
-              if (!m) return null;
-              const buyYes = (t.action === "buy") === (t.side === "YES");
-              return (
-                <Link
-                  key={`${dup}-${t.id}`}
-                  href={`/m/${m.id}`}
-                  className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] tracking-tight"
-                >
-                  <span className={buyYes ? "text-lime" : "text-hot"}>{buyYes ? "▲" : "▼"}</span>
-                  <span className="text-fog">{t.wallet}</span>
-                  <span className={t.action === "buy" ? "text-lime" : "text-hot"}>
-                    {t.action === "buy" ? "bought" : "sold"} {fmtSol(t.sol)} SOL {t.side}
-                  </span>
-                  <span className="text-bone">{m.emoji} {m.ticker}</span>
-                  <span className="text-fog">@ {fmtCents(t.priceCents)}</span>
-                </Link>
-              );
-            })}
+          <div key={dup} className="flex items-center gap-10" aria-hidden={dup === 1}>
+            {items.map((e) => (
+              <span key={`${dup}-${e.id}`} className="flex shrink-0 items-center gap-1.5 font-mono text-[11px]">
+                <span className={tone(e)}>{glyph(e)}</span>
+                <span className={e.kind === "trade" ? "text-fog" : tone(e)}>{e.text}</span>
+              </span>
+            ))}
           </div>
         ))}
       </div>

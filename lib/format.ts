@@ -1,12 +1,11 @@
-export function fmtSol(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  if (n >= 100) return n.toFixed(0);
-  if (n >= 10) return n.toFixed(1);
-  return n.toFixed(2);
+export function fmtPct(p: number): string {
+  return `${Math.round(p * 100)}%`;
 }
 
-export function fmtCents(c: number): string {
-  return `${Math.round(c)}¢`;
+export function fmtCredits(n: number): string {
+  if (n >= 100_000) return `${(n / 1000).toFixed(0)}K`;
+  if (n >= 10_000) return `${(n / 1000).toFixed(1)}K`;
+  return n >= 100 ? Math.round(n).toLocaleString() : n.toFixed(1);
 }
 
 export function fmtCompact(n: number): string {
@@ -23,8 +22,4 @@ export function timeAgo(ts: number, now: number): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
-}
-
-export function shortWallet(w: string): string {
-  return w.length > 12 ? `${w.slice(0, 6)}…${w.slice(-4)}` : w;
 }
