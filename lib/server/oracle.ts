@@ -157,13 +157,30 @@ function tick() {
   evaluateSettlements(s);
 }
 
-// Start exactly one loop per process, surviving dev HMR.
-const g = globalThis as unknown as { __uptimeOracleTimer?: ReturnType<typeof setInterval> };
+// Start exactly one loop per process, surviving dev HMR. On serverless
+// (Vercel), the interval only runs while the instance is warm, so ensureOracle
+// also runs catch-up ticks for any gap since the last one: every API request
+// advances the simulation to "now" before answering.
+const g = globalThis as unknown as {
+  __uptimeOracleTimer?: ReturnType<typeof setInterval>;
+  __uptimeLastTick?: number;
+};
+
+function tickTracked() {
+  tick();
+  g.__uptimeLastTick = Date.now();
+}
 
 export function ensureOracle() {
   const s = getState();
-  if (g.__uptimeOracleTimer) return;
-  g.__uptimeOracleTimer = setInterval(tick, CONFIG.tickMs);
-  s.loopStarted = true;
-  pushEvent(s, "system", "telemetry oracle online: reading services every 2s");
+  if (!g.__uptimeOracleTimer) {
+    g.__uptimeOracleTimer = setInterval(tickTracked, CONFIG.tickMs);
+    g.__uptimeLastTick = Date.now();
+    s.loopStarted = true;
+    pushEvent(s, "system", "telemetry oracle online: reading services every 2s");
+    return;
+  }
+  const gap = Date.now() - (g.__uptimeLastTick ?? Date.now());
+  const missed = Math.min(30, Math.floor(gap / CONFIG.tickMs));
+  for (let i = 0; i < missed; i++) tickTracked();
 }

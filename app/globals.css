@@ -5,18 +5,19 @@
   --font-body: var(--font-plex-sans), sans-serif;
   --font-mono: var(--font-plex-mono), monospace;
 
-  --color-ink: #0b0f0e;
-  --color-panel: #111614;
-  --color-panel2: #171e1b;
-  --color-edge: #222b27;
-  --color-edge2: #2e3a34;
-  --color-up: #4ade80;
-  --color-updim: #22a355;
-  --color-down: #f4635e;
-  --color-gold: #d4a72c;
-  --color-info: #5cb8e4;
-  --color-fog: #8fa39a;
-  --color-bone: #e7efe9;
+  /* light theme: white paper, emerald signal, oxblood counter */
+  --color-ink: #fbfcfa;
+  --color-panel: #ffffff;
+  --color-panel2: #f2f5f0;
+  --color-edge: #e5eae2;
+  --color-edge2: #ccd6ca;
+  --color-up: #0c8a4d;
+  --color-updim: #0a6b3d;
+  --color-down: #cf3f38;
+  --color-gold: #a87c1f;
+  --color-info: #2a7fb8;
+  --color-fog: #5f6f64;
+  --color-bone: #16211b;
 
   --animate-marquee: marquee 36s linear infinite;
   --animate-flash-up: flash-up 1s ease-out;
@@ -24,6 +25,7 @@
   --animate-pop-in: pop-in 0.35s cubic-bezier(0.2, 1.2, 0.4, 1);
   --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
   --animate-siren: siren 0.9s ease-in-out infinite;
+  --animate-fade-in: fade-in 0.8s ease both;
 }
 
 @keyframes marquee {
@@ -32,13 +34,13 @@
 }
 
 @keyframes flash-up {
-  0% { box-shadow: 0 0 0 1px var(--color-up), 0 0 28px rgba(74, 222, 128, 0.25); background-color: rgba(74, 222, 128, 0.08); }
-  100% { box-shadow: 0 0 0 1px transparent; background-color: var(--color-panel); }
+  0% { box-shadow: 0 0 0 1px var(--color-up), 0 6px 24px rgba(12, 138, 77, 0.18); background-color: rgba(12, 138, 77, 0.06); }
+  100% { box-shadow: 0 0 0 1px transparent; background-color: #ffffff; }
 }
 
 @keyframes flash-down {
-  0% { box-shadow: 0 0 0 1px var(--color-down), 0 0 28px rgba(244, 99, 94, 0.25); background-color: rgba(244, 99, 94, 0.08); }
-  100% { box-shadow: 0 0 0 1px transparent; background-color: var(--color-panel); }
+  0% { box-shadow: 0 0 0 1px var(--color-down), 0 6px 24px rgba(207, 63, 56, 0.18); background-color: rgba(207, 63, 56, 0.06); }
+  100% { box-shadow: 0 0 0 1px transparent; background-color: #ffffff; }
 }
 
 @keyframes pop-in {
@@ -61,14 +63,23 @@
   100% { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slide-zoom {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.06); }
+}
+
 html {
   background: var(--color-ink);
 }
 
 body {
   background:
-    radial-gradient(1100px 460px at 75% -10%, rgba(74, 222, 128, 0.05), transparent 60%),
-    radial-gradient(800px 400px at 5% 110%, rgba(92, 184, 228, 0.04), transparent 60%),
+    radial-gradient(1100px 460px at 80% -10%, rgba(12, 138, 77, 0.05), transparent 60%),
     var(--color-ink);
   color: var(--color-bone);
   font-family: var(--font-body);
@@ -77,7 +88,7 @@ body {
 
 ::selection {
   background: var(--color-up);
-  color: var(--color-ink);
+  color: #ffffff;
 }
 
 * {
@@ -93,10 +104,25 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* subtle grid texture for panels that hold telemetry */
+/* subtle grid texture for telemetry panels */
 .grid-tex {
   background-image:
-    linear-gradient(rgba(143, 163, 154, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(143, 163, 154, 0.05) 1px, transparent 1px);
+    linear-gradient(rgba(95, 111, 100, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 111, 100, 0.06) 1px, transparent 1px);
   background-size: 22px 22px;
+}
+
+/* refined card elevation on white */
+.card-lift {
+  box-shadow: 0 1px 2px rgba(22, 33, 27, 0.04);
+  transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(22, 33, 27, 0.10);
+}
+
+.slide-active img,
+.slide-active .slide-img {
+  animation: slide-zoom 6s linear both;
 }

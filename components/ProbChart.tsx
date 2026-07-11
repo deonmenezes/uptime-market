@@ -21,34 +21,34 @@ export default function ProbChart({ marketId, showLatency }: { marketId: string;
     const chart = createChart(ref.current, {
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#8fa39a",
+        textColor: "#5f6f64",
         fontFamily: "var(--font-plex-mono), monospace",
         fontSize: 10,
       },
       grid: {
-        vertLines: { color: "rgba(46,58,52,0.35)" },
-        horzLines: { color: "rgba(46,58,52,0.35)" },
+        vertLines: { color: "rgba(22,33,27,0.06)" },
+        horzLines: { color: "rgba(22,33,27,0.06)" },
       },
-      rightPriceScale: { borderColor: "#222b27" },
-      timeScale: { borderColor: "#222b27", timeVisible: true, secondsVisible: true },
+      rightPriceScale: { borderColor: "#e5eae2" },
+      timeScale: { borderColor: "#e5eae2", timeVisible: true, secondsVisible: true },
       crosshair: {
-        vertLine: { color: "#4ade80", width: 1, style: 3, labelBackgroundColor: "#4ade80" },
-        horzLine: { color: "#4ade80", width: 1, style: 3, labelBackgroundColor: "#4ade80" },
+        vertLine: { color: "#0c8a4d", width: 1, style: 3, labelBackgroundColor: "#0c8a4d" },
+        horzLine: { color: "#0c8a4d", width: 1, style: 3, labelBackgroundColor: "#0c8a4d" },
       },
       autoSize: true,
     });
 
     const prob = chart.addSeries(AreaSeries, {
-      lineColor: "#4ade80",
-      topColor: "rgba(74, 222, 128, 0.25)",
-      bottomColor: "rgba(74, 222, 128, 0.02)",
+      lineColor: "#0c8a4d",
+      topColor: "rgba(12, 138, 77, 0.18)",
+      bottomColor: "rgba(12, 138, 77, 0.01)",
       lineWidth: 2,
       priceFormat: { type: "custom", formatter: (p: number) => `${(p * 100).toFixed(0)}%`, minMove: 0.01 },
     });
 
     const latency = showLatency
       ? chart.addSeries(LineSeries, {
-          color: "rgba(92, 184, 228, 0.7)",
+          color: "rgba(42, 127, 184, 0.7)",
           lineWidth: 1,
           priceScaleId: "latency",
           priceFormat: { type: "custom", formatter: (v: number) => `${Math.round(v)}ms`, minMove: 1 },

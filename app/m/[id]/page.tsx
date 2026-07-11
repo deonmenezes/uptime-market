@@ -4,6 +4,7 @@ import { use } from "react";
 import Link from "next/link";
 import { useMarketStore } from "@/components/StoreContext";
 import { fmtCredits, fmtPct, timeAgo } from "@/lib/format";
+import { RUNTIMES } from "@/lib/runtimes";
 import ProbChart from "@/components/ProbChart";
 import TradePanel from "@/components/TradePanel";
 import TradeTape from "@/components/TradeTape";
@@ -54,9 +55,9 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
         {/* header */}
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <div
-            className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-edge2"
+            className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-edge"
             style={{
-              backgroundImage: `url(/art/${market.service}.png), linear-gradient(135deg, #0c3b2e, #081f18)`,
+              backgroundImage: `url(/art/light/${market.service}.png), linear-gradient(135deg, #f4f7f2, #ffffff)`,
               backgroundSize: "cover, cover",
               backgroundPosition: "center, center",
             }}
@@ -65,9 +66,19 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
             <h1 className="font-display text-xl font-bold leading-tight text-bone md:text-2xl">
               {market.question}
             </h1>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-fog">
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-fog">
               <span className="text-gold">{market.ticker}</span>
-              <span>{market.service}</span>
+              {RUNTIMES[market.service] && (
+                <span className="flex items-center gap-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={RUNTIMES[market.service].logo}
+                    alt={RUNTIMES[market.service].provider}
+                    className="h-4 w-auto max-w-8"
+                  />
+                  {market.service} · {RUNTIMES[market.service].product}
+                </span>
+              )}
               <span className={market.settlement === "auto" ? "text-info" : "text-gold"}>
                 {market.settlement === "auto" ? "oracle-settled" : "manually settled"}
               </span>
