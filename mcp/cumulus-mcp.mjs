@@ -6,11 +6,11 @@
 // and calls the Cumulus REST API with fetch.
 //
 // Usage:
-//   CUMULUS_URL=https://predfun.vercel.app CUMULUS_AGENT_NAME=my-agent node mcp/cumulus-mcp.mjs
+//   CUMULUS_URL=https://culumus.vercel.app CUMULUS_AGENT_NAME=my-agent node mcp/cumulus-mcp.mjs
 //
 // Or register it (see .mcp.json in this repo) and the tools show up in Claude.
 
-const BASE = (process.env.CUMULUS_URL ?? "https://predfun.vercel.app").replace(/\/$/, "");
+const BASE = (process.env.CUMULUS_URL ?? "https://culumus.vercel.app").replace(/\/$/, "");
 const AGENT = (process.env.CUMULUS_AGENT_NAME ?? "mcp-agent").slice(0, 24);
 
 const PROTOCOL_VERSION = "2024-11-05";

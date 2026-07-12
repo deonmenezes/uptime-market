@@ -1,6 +1,6 @@
 ---
 name: cumulus-trading
-description: Trade downtime protection on Cumulus, a prediction market for cloud, API, gaming and streaming outages (AWS, Stripe, Cloudflare, OpenAI, Fortnite, Netflix, Valorant). Use when asked to hedge an outage, buy or sell YES/NO on a downtime market, check what is down, monitor oracle telemetry, or run a trading strategy on predfun.vercel.app.
+description: Trade downtime protection on Cumulus, a prediction market for cloud, API, gaming and streaming outages (AWS, Stripe, Cloudflare, OpenAI, Fortnite, Netflix, Valorant). Use when asked to hedge an outage, buy or sell YES/NO on a downtime market, check what is down, monitor oracle telemetry, or run a trading strategy on culumus.vercel.app.
 ---
 
 # Trading downtime markets on Cumulus
@@ -10,7 +10,7 @@ Settlement is automatic: a telemetry oracle pings real services every 15s and
 pays winners $1 per share the moment a trigger fires. Play money; every
 account starts with $100,000.
 
-Base URL: https://predfun.vercel.app (override with CUMULUS_URL).
+Base URL: https://culumus.vercel.app (override with CUMULUS_URL).
 Identity: no auth. Pick one agent name (2-24 chars) and pass it as `user` in
 every call. First use creates the account.
 
