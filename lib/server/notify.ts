@@ -117,7 +117,11 @@ async function placeCall(script: string): Promise<{ ok: boolean; detail: string 
 
 // This is awaited by the request path. Vercel can stop unawaited work after a
 // response is sent, which otherwise drops outbound calls without an error.
-export async function fireDowntimeVoiceAlert(s: AppState, question: string, note: string): Promise<void> {
+export async function fireDowntimeVoiceAlert(
+  s: AppState,
+  question: string,
+  note: string
+): Promise<{ ok: boolean; detail: string }> {
   try {
     const script = await generateScript(question, note);
     pushEvent(s, "incident", `AI voice alert drafted: "${script.slice(0, 110)}${script.length > 110 ? "..." : ""}"`);
@@ -127,7 +131,9 @@ export async function fireDowntimeVoiceAlert(s: AppState, question: string, note
       "incident",
       call.ok ? `voice call dispatched via Twilio (${call.detail})` : `voice call skipped: ${call.detail}`
     );
+    return call;
   } catch {
     // Alerting must never take down settlement.
+    return { ok: false, detail: "unexpected alerting error" };
   }
 }

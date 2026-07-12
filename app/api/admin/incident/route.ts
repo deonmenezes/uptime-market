@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
     if (!market) return NextResponse.json({ error: "market unavailable" }, { status: 500 });
     const note = `simulated outage injected on ${service}; immediate voice-alert verification`;
     settleMarket(s, market.id, "YES", note);
-    await fireDowntimeVoiceAlert(s, market.question, note);
+    const call = await fireDowntimeVoiceAlert(s, market.question, note);
+    if (!call.ok) return NextResponse.json({ error: `Twilio call failed: ${call.detail}` }, { status: 502 });
     return NextResponse.json({ ok: true, service, voiceAlert: "dispatched" });
   }
   if (service && service !== "checkout-service") {
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
   const note = "simulated outage injected on checkout-service; immediate voice-alert verification";
   settleMarket(s, market.id, "YES", note);
   pushEvent(s, "incident", "checkout-service simulated outage settled immediately for voice-alert verification");
-  await fireDowntimeVoiceAlert(s, market.question, note);
+  const call = await fireDowntimeVoiceAlert(s, market.question, note);
+  if (!call.ok) return NextResponse.json({ error: `Twilio call failed: ${call.detail}` }, { status: 502 });
   return NextResponse.json({ ok: true, service: "checkout-service", voiceAlert: "dispatched" });
 }
