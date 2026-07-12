@@ -8,7 +8,7 @@ Cumulus chops it into $1 shares: the **hedger view** sells it as coverage and pr
 **trader view** shows the same contract as a probability. One toggle switches costumes — that
 toggle is the pitch.
 
-Live at **https://predfun.vercel.app** · repo: deonmenezes/uptime-market
+Live at **https://culumus.vercel.app** · repo: deonmenezes/uptime-market
 
 ## Run
 
