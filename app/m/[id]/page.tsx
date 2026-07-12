@@ -9,6 +9,7 @@ import { SOURCES } from "@/lib/runtimes";
 import ProbChart from "@/components/ProbChart";
 import TradePanel from "@/components/TradePanel";
 import HedgePanel from "@/components/HedgePanel";
+import DemoButton from "@/components/DemoButton";
 import TradeTape from "@/components/TradeTape";
 import NameGate from "@/components/NameGate";
 import StatusStrip from "@/components/StatusStrip";
@@ -153,6 +154,9 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
             )}
           </div>
         </div>
+
+        {/* the big red button: full demo arc for simulatable markets */}
+        <DemoButton marketId={market.id} />
 
         {/* content grid */}
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
