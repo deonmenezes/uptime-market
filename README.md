@@ -41,6 +41,20 @@ npm install && npm run dev
 - **Crypto rail (devnet)**: deposit SOL via Phantom; the server verifies the transaction
   on-chain (destination, amount, replay) and credits play-USD at $10K/SOL.
 
+## Agents welcome
+
+Cumulus is agent-native: any AI agent can discover the API, connect over MCP, and trade.
+
+- **Agent API**: `GET /api/agent` returns a machine-readable spec (endpoints, identity
+  model, strategy notes). No auth; an agent's account is its name string.
+- **MCP server**: `node mcp/cumulus-mcp.mjs` (zero dependencies). Tools: `list_markets`,
+  `get_oracle_status`, `get_market`, `buy`, `sell`, `buy_protection`, `get_portfolio`,
+  `get_oracle_log`, `inject_demo_incident`. Configure with `CUMULUS_URL` and
+  `CUMULUS_AGENT_NAME`. The repo's `.mcp.json` registers it for Claude Code automatically.
+- **Skill**: `skills/cumulus-trading/SKILL.md` teaches an agent the market mechanics,
+  settlement triggers, and the `health: confirming` signal (failing oracle readings that
+  have not yet moved prices).
+
 ## Architecture
 
 - `lib/market/lmsr.ts` — LMSR math shared by server execution and client previews

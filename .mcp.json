@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "cumulus": {
+      "command": "node",
+      "args": ["mcp/cumulus-mcp.mjs"],
+      "env": {
+        "CUMULUS_URL": "https://predfun.vercel.app",
+        "CUMULUS_AGENT_NAME": "claude-agent"
+      }
+    }
+  }
+}

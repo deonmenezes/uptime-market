@@ -51,12 +51,18 @@ export default function ProbChart({ marketId }: { marketId: string; showLatency?
         // lightweight-charts wants strictly ascending unique timestamps
         const seen = new Set<number>();
         const points = data.prices
+          .slice()
+          .sort((a, b) => a.ts - b.ts)
           .map((p) => ({ time: Math.floor(p.ts / 1000) as UTCTimestamp, value: p.p }))
           .filter((p) => {
             if (seen.has(p.time)) return false;
             seen.add(p.time);
             return true;
           });
+        // a single point draws no line; anchor it a minute back so the chart reads
+        if (points.length === 1) {
+          points.unshift({ time: (points[0].time - 60) as UTCTimestamp, value: points[0].value });
+        }
         prob.setData(points);
 
         if (!fitted && points.length) {

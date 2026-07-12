@@ -16,7 +16,7 @@ export function injectIncident(): { ok: boolean } {
   return { ok: true };
 }
 
-function simTick(s: AppState) {
+function simTick(s: AppState, ts = Date.now()) {
   const incident = s.simIncidentTicks > 0;
   if (incident) s.simIncidentTicks -= 1;
   const errorRate = incident ? 12 + Math.random() * 20 : Math.max(0.05, 0.4 + (Math.random() - 0.5) * 0.3);
@@ -26,7 +26,7 @@ function simTick(s: AppState) {
   s.simConsecutiveDown = ok ? 0 : s.simConsecutiveDown + 1;
 
   appendReading(s, {
-    ts: Date.now(),
+    ts,
     source: "sim:checkout-service",
     service: "checkout-service",
     ok,
@@ -149,7 +149,7 @@ function evaluateRealSettlements(s: AppState) {
 
 // ---- market-maker bots: LPs quote both sides, lean on the signal ----
 
-function botStep(s: AppState) {
+function botStep(s: AppState, ts = Date.now()) {
   if (Math.random() > 0.5) return;
   const bots = [...s.users.values()].filter((u) => u.isBot && u.balanceUsd > 10_000);
   if (!bots.length) return;
@@ -164,23 +164,25 @@ function botStep(s: AppState) {
   // mostly write protection, which keeps premiums competitive
   const side = degraded ? "YES" : Math.random() > 0.3 ? "NO" : "YES";
   const spend = degraded ? 8_000 + Math.random() * 25_000 : 500 + Math.random() * 4_000;
-  executeTrade(s, bot.name, m.id, side, "buy", spend);
+  executeTrade(s, bot.name, m.id, side, "buy", spend, ts);
 }
 
 // ---- loops, serverless-safe ----
 
-function tickSimTracked() {
+// ts matters: serverless catch-up replays missed ticks with backdated,
+// evenly spaced timestamps so chart history stays continuous between requests
+function tickSimTracked(ts = Date.now()) {
   const s = getState();
-  simTick(s);
-  botStep(s);
+  simTick(s, ts);
+  botStep(s, ts);
   // append a history point so charts move between trades
   for (const m of s.markets.values()) {
     if (m.status !== "open") continue;
     const hist = s.priceHistory.get(m.id)!;
-    hist.push({ ts: Date.now(), p: priceYes(m.qYes, m.qNo, m.b) });
+    hist.push({ ts, p: priceYes(m.qYes, m.qNo, m.b) });
     if (hist.length > 2500) hist.shift();
   }
-  g.__cumulusLastSim = Date.now();
+  g.__cumulusLastSim = Math.max(g.__cumulusLastSim ?? 0, ts);
 }
 
 async function tickRealTracked() {
@@ -209,10 +211,13 @@ export async function ensureOracle() {
     await tickRealTracked();
     return;
   }
-  // serverless catch-up: intervals pause when the instance sleeps
-  const simGap = Date.now() - (g.__cumulusLastSim ?? Date.now());
-  const missedSim = Math.min(30, Math.floor(simGap / CONFIG.simTickMs));
-  for (let i = 0; i < missedSim; i++) tickSimTracked();
+  // serverless catch-up: intervals pause when the instance sleeps, so replay
+  // the missed ticks with backdated timestamps spread across the gap
+  const base = g.__cumulusLastSim ?? Date.now();
+  const simGap = Date.now() - base;
+  const missedSim = Math.min(120, Math.floor(simGap / CONFIG.simTickMs));
+  const step = simGap / Math.max(1, missedSim);
+  for (let i = 1; i <= missedSim; i++) tickSimTracked(Math.round(base + i * step));
   const realGap = Date.now() - (g.__cumulusLastReal ?? 0);
   if (realGap > CONFIG.realTickMs) await tickRealTracked();
 }

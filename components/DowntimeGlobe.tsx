@@ -80,7 +80,6 @@ const ARC_PAIRS: Array<[string, string]> = [
 ];
 
 const DEG = Math.PI / 180;
-const TILT = 16 * DEG;
 const SPIN_MS_PER_DEG = 90; // one revolution ≈ 32s
 
 interface P3 {
@@ -89,13 +88,13 @@ interface P3 {
   z: number;
 }
 
-function project(lat: number, lon: number, lon0: number, r: number, cx: number, cy: number): P3 {
+function project(lat: number, lon: number, lon0: number, tilt: number, r: number, cx: number, cy: number): P3 {
   const φ = lat * DEG;
   const λ = lon * DEG - lon0;
   const cosφ = Math.cos(φ);
   const x = cosφ * Math.sin(λ);
-  const y = Math.cos(TILT) * Math.sin(φ) - Math.sin(TILT) * cosφ * Math.cos(λ);
-  const z = Math.sin(TILT) * Math.sin(φ) + Math.cos(TILT) * cosφ * Math.cos(λ);
+  const y = Math.cos(tilt) * Math.sin(φ) - Math.sin(tilt) * cosφ * Math.cos(λ);
+  const z = Math.sin(tilt) * Math.sin(φ) + Math.cos(tilt) * cosφ * Math.cos(λ);
   return { x: cx + r * x, y: cy - r * y, z };
 }
 
@@ -145,6 +144,10 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
   const marketByServiceRef = useRef<Map<string, string>>(new Map());
   const hitsRef = useRef<Array<{ x: number; y: number; service: string }>>([]);
   const [fullscreen, setFullscreen] = useState(false);
+  // interaction: drag to rotate (horizontal) and tilt (vertical); auto-spin
+  // pauses while dragging and resumes from wherever you leave it
+  const viewRef = useRef({ lonOffsetDeg: 0, tiltDeg: 16, spinBaseMs: 0, dragging: false, moved: 0 });
+  const dragRef = useRef<{ x: number; y: number; lastT: number } | null>(null);
 
   // latest monitor health + service->market mapping in refs for the rAF loop
   useEffect(() => {
@@ -213,9 +216,13 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
       const cx = w / 2;
       const cy = h / 2 + h * 0.03;
       const r = Math.min(w, h) * 0.44;
-      const lon0 = ((t / SPIN_MS_PER_DEG) % 360) * DEG;
-      const sinT = Math.sin(TILT);
-      const cosT = Math.cos(TILT);
+      const v = viewRef.current;
+      if (!v.dragging && v.spinBaseMs) v.lonOffsetDeg += (t - v.spinBaseMs) / SPIN_MS_PER_DEG;
+      v.spinBaseMs = t;
+      const lon0 = (v.lonOffsetDeg % 360) * DEG;
+      const tilt = v.tiltDeg * DEG;
+      const sinT = Math.sin(tilt);
+      const cosT = Math.cos(tilt);
 
       // sphere body
       const body = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r);
@@ -236,7 +243,7 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
         ctx.beginPath();
         let pen = false;
         for (let lon = -180; lon <= 180; lon += 5) {
-          const p = project(lat, lon, lon0, r, cx, cy);
+          const p = project(lat, lon, lon0, tilt, r, cx, cy);
           if (p.z > 0) {
             if (pen) ctx.lineTo(p.x, p.y);
             else ctx.moveTo(p.x, p.y);
@@ -276,7 +283,7 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
         for (let i = 0; i <= 24; i++) {
           const f = i / 24;
           const lift = 1 + 0.09 * Math.sin(f * Math.PI);
-          const p = project(a.lat + (b.lat - a.lat) * f, a.lon + dLon * f, lon0, r * lift, cx, cy);
+          const p = project(a.lat + (b.lat - a.lat) * f, a.lon + dLon * f, lon0, tilt, r * lift, cx, cy);
           if (p.z > -0.05) {
             if (pen) ctx.lineTo(p.x, p.y);
             else ctx.moveTo(p.x, p.y);
@@ -292,7 +299,7 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
       hitsRef.current = [];
       const chipQueue: Array<{ s: Site; p: P3; health: MonitorHealth | undefined }> = [];
       for (const s of SITES) {
-        const p = project(s.lat, s.lon, lon0, r, cx, cy);
+        const p = project(s.lat, s.lon, lon0, tilt, r, cx, cy);
         if (p.z <= 0) continue;
         const monitored = s.service !== undefined;
         const health = monitored ? statusRef.current.get(s.service!) : undefined;
@@ -419,6 +426,7 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
   };
 
   const onClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (viewRef.current.moved > 5) return; // that was a drag, not a click
     const hit = hitAt(e);
     if (hit) {
       const marketId = marketByServiceRef.current.get(hit.service);
@@ -430,8 +438,31 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
     if (expandable) setFullscreen(true);
   };
 
-  const onMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    e.currentTarget.style.cursor = hitAt(e) ? "pointer" : expandable ? "zoom-in" : "default";
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    viewRef.current.dragging = true;
+    viewRef.current.moved = 0;
+    dragRef.current = { x: e.clientX, y: e.clientY, lastT: performance.now() };
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const v = viewRef.current;
+    if (v.dragging && dragRef.current) {
+      const dx = e.clientX - dragRef.current.x;
+      const dy = e.clientY - dragRef.current.y;
+      dragRef.current = { x: e.clientX, y: e.clientY, lastT: performance.now() };
+      v.moved += Math.abs(dx) + Math.abs(dy);
+      v.lonOffsetDeg -= dx * 0.35; // drag right, globe turns with you
+      v.tiltDeg = Math.max(-40, Math.min(70, v.tiltDeg + dy * 0.25));
+      e.currentTarget.style.cursor = "grabbing";
+      return;
+    }
+    e.currentTarget.style.cursor = hitAt(e) ? "pointer" : "grab";
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    viewRef.current.dragging = false;
+    e.currentTarget.style.cursor = "grab";
   };
 
   return (
@@ -439,9 +470,12 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
       <canvas
         ref={canvasRef}
         onClick={onClick}
-        onMouseMove={onMove}
-        className="h-full w-full"
-        aria-label="global datacenter and API status. click a pin to open its market"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className="h-full w-full touch-none"
+        aria-label="global datacenter and API status. drag to rotate, click a pin to open its market"
       />
       <div className="pointer-events-none absolute left-4 top-3">
         <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-fog">
@@ -525,7 +559,7 @@ export default function DowntimeGlobe({ expandable = true }: { expandable?: bool
       )}
 
       <div className="pointer-events-none absolute bottom-3 left-4 font-mono text-[9px] text-fog/70">
-        click a pin to trade its market{expandable ? " · click the globe to expand" : ""}
+        drag to spin · click a pin to trade its market{expandable ? " · click open water to expand" : ""}
       </div>
 
       {/* fullscreen overlay */}
