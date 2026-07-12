@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 export function proxy(request: NextRequest) {
   if (request.headers.get("accept")?.includes("text/markdown")) {
-    return NextResponse.rewrite(new URL("/_agent-markdown", request.url));
+    return NextResponse.rewrite(new URL("/agent-markdown", request.url));
   }
   return NextResponse.next();
 }

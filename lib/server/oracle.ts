@@ -149,28 +149,36 @@ async function evaluateRealSettlements(s: AppState) {
   const aws = s.markets.get("aws-use1");
   const awsLast = s.lastByService.get("aws-us-east-1");
   if (aws?.status === "open" && awsLast && awsLast.indicator !== "feed-unreachable" && !awsLast.ok) {
-    settleMarket(s, "aws-use1", "YES", `AWS Health feed shows an active us-east-1 event (reading ${awsLast.hash.slice(0, 12)})`);
+    const note = `AWS Health feed shows an active us-east-1 event (reading ${awsLast.hash.slice(0, 12)})`;
+    settleMarket(s, "aws-use1", "YES", note);
+    await fireDowntimeVoiceAlert(s, aws.question, note);
   }
 
   // Cloudflare: major/critical indicator on the public status page
   const cf = s.markets.get("cf-incident");
   const cfLast = s.lastByService.get("cloudflare-net");
   if (cf?.status === "open" && cfLast && cfLast.indicator !== "feed-unreachable" && !cfLast.ok) {
-    settleMarket(s, "cf-incident", "YES", `cloudflarestatus.com reported ${cfLast.indicator} (reading ${cfLast.hash.slice(0, 12)})`);
+    const note = `cloudflarestatus.com reported ${cfLast.indicator} (reading ${cfLast.hash.slice(0, 12)})`;
+    settleMarket(s, "cf-incident", "YES", note);
+    await fireDowntimeVoiceAlert(s, cf.question, note);
   }
 
   // Stripe: cumulative failed monitor checks past 30 minutes
   const stripe = s.markets.get("stripe-30m");
   const stripeDown = s.downReadings.get("stripe-api") ?? 0;
   if (stripe?.status === "open" && stripeDown >= CONFIG.stripeDownReadings) {
-    settleMarket(s, "stripe-30m", "YES", `synthetic monitor logged ${stripeDown} failed checks (≈${Math.round((stripeDown * CONFIG.realTickMs) / 60000)} min of downtime)`);
+    const note = `synthetic monitor logged ${stripeDown} failed checks (approximately ${Math.round((stripeDown * CONFIG.realTickMs) / 60000)} min of downtime)`;
+    settleMarket(s, "stripe-30m", "YES", note);
+    await fireDowntimeVoiceAlert(s, stripe.question, note);
   }
 
   // Fortnite/Epic: major/critical indicator on the Epic Games status page
   const epic = s.markets.get("epic-fortnite");
   const epicLast = s.lastByService.get("epic-fortnite");
   if (epic?.status === "open" && epicLast && epicLast.indicator !== "feed-unreachable" && !epicLast.ok) {
-    settleMarket(s, "epic-fortnite", "YES", `status.epicgames.com reported ${epicLast.indicator} (reading ${epicLast.hash.slice(0, 12)})`);
+    const note = `status.epicgames.com reported ${epicLast.indicator} (reading ${epicLast.hash.slice(0, 12)})`;
+    settleMarket(s, "epic-fortnite", "YES", note);
+    await fireDowntimeVoiceAlert(s, epic.question, note);
   }
 
   // Netflix: cumulative failed monitor checks past 30 minutes
@@ -195,7 +203,9 @@ async function evaluateRealSettlements(s: AppState) {
   const val = s.markets.get("riot-valorant");
   const valDown = s.downReadings.get("riot-valorant") ?? 0;
   if (val?.status === "open" && valDown >= CONFIG.stripeDownReadings) {
-    settleMarket(s, "riot-valorant", "YES", `synthetic monitor logged ${valDown} failed checks against auth.riotgames.com (≈${Math.round((valDown * CONFIG.realTickMs) / 60000)} min of downtime)`);
+    const note = `synthetic monitor logged ${valDown} failed checks against auth.riotgames.com (approximately ${Math.round((valDown * CONFIG.realTickMs) / 60000)} min of downtime)`;
+    settleMarket(s, "riot-valorant", "YES", note);
+    await fireDowntimeVoiceAlert(s, val.question, note);
   }
 
   // OpenAI: measured weekly availability under the SLO
@@ -206,7 +216,9 @@ async function evaluateRealSettlements(s: AppState) {
   if (oai?.status === "open" && total >= CONFIG.openaiMinReadings) {
     const availability = (up / total) * 100;
     if (availability < CONFIG.openaiSloPct) {
-      settleMarket(s, "openai-slo", "YES", `measured availability ${availability.toFixed(2)}% over ${total} readings (SLO ${CONFIG.openaiSloPct}%)`);
+      const note = `measured availability ${availability.toFixed(2)}% over ${total} readings (SLO ${CONFIG.openaiSloPct}%)`;
+      settleMarket(s, "openai-slo", "YES", note);
+      await fireDowntimeVoiceAlert(s, oai.question, note);
     }
   }
 }

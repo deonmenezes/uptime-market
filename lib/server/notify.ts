@@ -18,8 +18,9 @@ const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 const NVIDIA_MODEL = process.env.NVIDIA_MODEL ?? "meta/llama-3.1-8b-instruct";
 
 function fallbackScript(question: string, note: string): string {
+  const simulated = /simulated|simulation/i.test(note);
   return (
-    `This is Cumulus, your downtime protection desk. We have confirmed an outage. ` +
+    `This is Cumulus, your downtime protection desk. ${simulated ? "This is a simulated outage exercise." : "We have confirmed an outage."} ` +
     `${question}. The oracle recorded the evidence: ${note}. ` +
     `Your protection has been paid out automatically. No claim to file. Goodbye.`
   );
@@ -41,7 +42,7 @@ async function generateScript(question: string, note: string): Promise<string> {
           {
             role: "system",
             content:
-              "You are the calm, professional AI voice of Cumulus, a downtime protection market. Write a spoken phone alert under 55 words: state that the outage is confirmed, name the service, mention the oracle evidence briefly, and confirm the protection payout was automatic with no claim to file. Plain speech only, no markdown, no emojis.",
+              "You are the calm, professional AI voice of Cumulus, a downtime protection market. Write a spoken phone alert under 55 words. If the oracle evidence says this is simulated, clearly call it a simulation; otherwise state that the outage is confirmed. Name the service, mention the oracle evidence briefly, and confirm the protection payout was automatic with no claim to file. Plain speech only, no markdown, no emojis.",
           },
           { role: "user", content: `Contract: ${question}. Oracle evidence: ${note}.` },
         ],
