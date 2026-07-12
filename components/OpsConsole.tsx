@@ -8,6 +8,7 @@ import { useMarketStore } from "./StoreContext";
 export default function OpsConsole() {
   const { snap, injectIncident, settle } = useMarketStore();
   const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const demo = snap?.markets.find((m) => m.id === "demo-checkout");
   const demoOpen = demo?.status === "open";
@@ -16,8 +17,11 @@ export default function OpsConsole() {
 
   const fire = async (service?: string) => {
     setBusy(service ?? "checkout");
+    setError(null);
     try {
       await injectIncident(service);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "injection failed");
     } finally {
       setBusy(null);
     }
@@ -70,6 +74,7 @@ export default function OpsConsole() {
           holders paid → Twilio places an AI voice call (script by NVIDIA LLM) announcing the
           outage. time-compressed simulation; the real monitor resumes after settlement.
         </p>
+        {error && <p className="font-mono text-[10px] text-down">⚠ {error}</p>}
 
         {demoOpen && (
           <div className="flex gap-2 border-t border-edge pt-2">

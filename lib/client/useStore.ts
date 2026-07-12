@@ -116,12 +116,14 @@ export function useStore() {
 
   const injectIncident = useCallback(
     async (service?: string) => {
-      await fetch("/api/admin/incident", {
+      const res = await fetch("/api/admin/incident", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(service ? { service } : {}),
       });
+      const data = await res.json().catch(() => null);
       await refresh();
+      if (!res.ok) throw new Error(data?.error ?? "incident injection failed");
     },
     [refresh]
   );
