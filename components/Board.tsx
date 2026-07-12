@@ -9,6 +9,7 @@ import OpsConsole from "./OpsConsole";
 import NameGate from "./NameGate";
 import TradeTape from "./TradeTape";
 import DowntimeGlobe from "./DowntimeGlobe";
+import DemoButton from "./DemoButton";
 
 export default function Board() {
   const { snap, flashes, mode, setMode } = useMarketStore();
@@ -61,6 +62,8 @@ export default function Board() {
           </div>
         </div>
       </section>
+
+      <DemoButton />
 
       <div id="markets" className="mx-auto max-w-7xl px-4 pb-24">
         <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
