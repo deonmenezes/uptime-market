@@ -85,8 +85,10 @@ async function placeCall(script: string): Promise<{ ok: boolean; detail: string 
   const keySid = process.env.TWILIO_API_KEY_SID;
   const keySecret = process.env.TWILIO_API_KEY_SECRET;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const authUser = keySid && keySecret ? keySid : accountSid;
-  const authPass = keySid && keySecret ? keySecret : authToken;
+  // Prefer the account token when it is configured. This matches Gridpath's
+  // proven outbound-call setup, while retaining API-key support as a fallback.
+  const authUser = authToken ? accountSid : keySid && keySecret ? keySid : undefined;
+  const authPass = authToken ?? (keySid && keySecret ? keySecret : undefined);
   if (!accountSid || !authUser || !authPass || !from || !to) {
     return {
       ok: false,
