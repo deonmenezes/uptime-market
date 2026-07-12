@@ -3,11 +3,13 @@
 // Twilio text-to-speech (the Glide-project voice rail, pointed at outages).
 //
 // Env (all optional; the demo degrades gracefully without them):
-//   NVIDIA_API_KEY        key for integrate.api.nvidia.com (script generation)
-//   TWILIO_ACCOUNT_SID    Twilio account
-//   TWILIO_AUTH_TOKEN     Twilio auth token
-//   TWILIO_FROM_NUMBER    the Twilio number that places the call, E.164
-//   ALERT_PHONE_NUMBER    the number to call when downtime is confirmed, E.164
+//   NVIDIA_API_KEY          key for integrate.api.nvidia.com (script generation)
+//   TWILIO_ACCOUNT_SID      Twilio Account SID (AC...), always required for calls
+//   TWILIO_AUTH_TOKEN       auth option A: the account auth token
+//   TWILIO_API_KEY_SID      auth option B: an API key (SK...) ...
+//   TWILIO_API_KEY_SECRET   ... plus its secret (preferred over the auth token)
+//   TWILIO_FROM_NUMBER      the Twilio number that places the call, E.164
+//   ALERT_PHONE_NUMBER      the number to call when downtime is confirmed, E.164
 
 import type { AppState } from "./state";
 import { pushEvent } from "./state";
@@ -59,20 +61,29 @@ function xmlEscape(s: string): string {
 }
 
 async function placeCall(script: string): Promise<{ ok: boolean; detail: string }> {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const from = process.env.TWILIO_FROM_NUMBER;
   const to = process.env.ALERT_PHONE_NUMBER;
-  if (!sid || !token || !from || !to) {
-    return { ok: false, detail: "Twilio env not configured (TWILIO_ACCOUNT_SID/AUTH_TOKEN/FROM_NUMBER, ALERT_PHONE_NUMBER)" };
+  // auth: an API key pair (SK... + secret) or the account auth token
+  const keySid = process.env.TWILIO_API_KEY_SID;
+  const keySecret = process.env.TWILIO_API_KEY_SECRET;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const authUser = keySid && keySecret ? keySid : accountSid;
+  const authPass = keySid && keySecret ? keySecret : authToken;
+  if (!accountSid || !authUser || !authPass || !from || !to) {
+    return {
+      ok: false,
+      detail:
+        "Twilio env not configured (need TWILIO_ACCOUNT_SID, TWILIO_FROM_NUMBER, ALERT_PHONE_NUMBER, and either TWILIO_API_KEY_SID+TWILIO_API_KEY_SECRET or TWILIO_AUTH_TOKEN)",
+    };
   }
   try {
     const twiml = `<Response><Say voice="Polly.Matthew">${xmlEscape(script)}</Say></Response>`;
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json`, {
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`, {
       method: "POST",
       signal: AbortSignal.timeout(10_000),
       headers: {
-        authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
+        authorization: `Basic ${Buffer.from(`${authUser}:${authPass}`).toString("base64")}`,
         "content-type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({ From: from, To: to, Twiml: twiml }).toString(),
