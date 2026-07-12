@@ -42,7 +42,7 @@ export default function Board() {
               >
                 {mode === "hedger" ? "I'm here to trade →" : "I need protection →"}
               </button>
-              <div className="flex items-center gap-4 opacity-80">
+              <div className="flex flex-wrap items-center gap-4 opacity-80">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/logos/aws.svg" alt="AWS" className="h-7" />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -51,6 +51,14 @@ export default function Board() {
                 <img src="/logos/cloudflare.svg" alt="Cloudflare" className="h-6" />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/logos/openai.svg" alt="OpenAI" className="h-5" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logos/netflix.svg" alt="Netflix" className="h-5" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logos/claude.svg" alt="Anthropic Claude" className="h-5" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logos/epicgames.svg" alt="Epic Games" className="h-6" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logos/valorant.svg" alt="Riot Valorant" className="h-5" />
               </div>
             </div>
           </div>

@@ -57,7 +57,11 @@ export default function OpsConsole() {
           disabled={busy !== null || !nflxOpen}
           className="flex w-full items-center justify-between rounded-md border border-edge bg-ink px-3 py-2.5 font-mono text-[11px] text-bone transition-colors hover:border-down hover:text-down disabled:opacity-40"
         >
-          <span>simulate outage · netflix (full arc + voice call)</span>
+          <span className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logos/netflix.svg" alt="Netflix" className="h-4 w-auto" />
+            simulate outage · netflix (full arc + voice call)
+          </span>
           <span className="text-down">{busy === "netflix-cdn" ? "firing…" : nflxOpen ? "▲" : "settled"}</span>
         </button>
 
@@ -66,7 +70,11 @@ export default function OpsConsole() {
           disabled={busy !== null || !cldOpen}
           className="flex w-full items-center justify-between rounded-md border border-edge bg-ink px-3 py-2.5 font-mono text-[11px] text-bone transition-colors hover:border-down hover:text-down disabled:opacity-40"
         >
-          <span>simulate outage · claude api (full arc + voice call)</span>
+          <span className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logos/claude.svg" alt="Claude" className="h-4 w-auto" />
+            simulate outage · claude api (full arc + voice call)
+          </span>
           <span className="text-down">{busy === "anthropic-api" ? "firing…" : cldOpen ? "▲" : "settled"}</span>
         </button>
         <p className="font-mono text-[9px] leading-relaxed text-fog/60">

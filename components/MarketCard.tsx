@@ -53,10 +53,14 @@ export default function MarketCard({
           }}
         />
         {src && (
-          <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/92 px-2.5 py-1 shadow-sm backdrop-blur-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src.logo} alt={src.provider} className="h-4 w-auto max-w-8" />
-            <span className="font-mono text-[9px] font-medium text-fog">{src.provider}</span>
+          <span className="absolute bottom-3 left-3 flex items-center gap-2">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-black/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src.logo} alt={src.provider} className="h-6 w-auto max-w-8" />
+            </span>
+            <span className="rounded-full bg-white/92 px-2.5 py-1 font-mono text-[10px] font-semibold text-bone shadow-sm backdrop-blur-sm">
+              {src.provider}
+            </span>
           </span>
         )}
         <span
