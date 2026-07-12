@@ -114,10 +114,17 @@ export function useStore() {
     [refresh]
   );
 
-  const injectIncident = useCallback(async () => {
-    await fetch("/api/admin/incident", { method: "POST" });
-    await refresh();
-  }, [refresh]);
+  const injectIncident = useCallback(
+    async (service?: string) => {
+      await fetch("/api/admin/incident", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(service ? { service } : {}),
+      });
+      await refresh();
+    },
+    [refresh]
+  );
 
   const settle = useCallback(
     async (marketId: string, outcome: Side) => {

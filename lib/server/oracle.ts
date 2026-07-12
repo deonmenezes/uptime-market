@@ -5,6 +5,7 @@
 
 import { AppState, CONFIG, appendReading, executeTrade, getState, pushEvent, settleMarket } from "./state";
 import { collectSignals } from "./feeds";
+import { fireDowntimeVoiceAlert } from "./notify";
 import { priceYes } from "@/lib/market/lmsr";
 
 // ---- demo simulator (the stage safety net) ----
@@ -14,6 +15,54 @@ export function injectIncident(): { ok: boolean } {
   s.simIncidentTicks = 14 + Math.floor(Math.random() * 6);
   pushEvent(s, "incident", "SEV-1 injected on checkout-service: error rate spiking (simulated)");
   return { ok: true };
+}
+
+// The Netflix demo arc: simulated failing readings on the netflix-cdn monitor,
+// time-compressed (2s cadence, settles after netflixSimBreachTicks) so the
+// full story fits a stage demo: globe turns yellow then red, LPs reprice, the
+// contract settles YES, holders are paid, and Twilio places the AI voice call.
+export function injectNetflixOutage(): { ok: boolean; error?: string } {
+  const s = getState();
+  const m = s.markets.get("netflix-30m");
+  if (!m || m.status !== "open") return { ok: false, error: "netflix market is not open" };
+  if (s.simNetflixTicks > 0) return { ok: false, error: "netflix simulation already running" };
+  s.simNetflixTicks = CONFIG.netflixSimBreachTicks + 4;
+  s.simNetflixDown = 0;
+  pushEvent(s, "incident", "SEV-1 injected on netflix-cdn: simulated outage, time-compressed for demo");
+  return { ok: true };
+}
+
+function simNetflixTick(s: AppState, ts: number) {
+  if (s.simNetflixTicks <= 0) return;
+  s.simNetflixTicks -= 1;
+  s.simNetflixDown += 1;
+
+  appendReading(s, {
+    ts,
+    source: "sim:netflix-cdn",
+    service: "netflix-cdn",
+    ok: false,
+    latencyMs: null,
+    indicator: "simulated-outage",
+    summary: `netflix.com unreachable [simulated outage, reading ${s.simNetflixDown}/${CONFIG.netflixSimBreachTicks}]`,
+  });
+  // drive the same tri-state the real monitors use: confirming, then down
+  const fails = (s.consecFails.get("netflix-cdn") ?? 0) + 1;
+  s.consecFails.set("netflix-cdn", fails);
+  if (fails === CONFIG.monitorConfirmFails) {
+    pushEvent(s, "incident", "oracle: degradation confirmed on netflix-cdn (simulated outage)");
+  }
+
+  const m = s.markets.get("netflix-30m");
+  if (m?.status === "open" && s.simNetflixDown >= CONFIG.netflixSimBreachTicks) {
+    const note = `oracle logged ${s.simNetflixDown} consecutive failing readings on netflix-cdn (simulated outage, time-compressed demo)`;
+    settleMarket(s, "netflix-30m", "YES", note);
+    fireDowntimeVoiceAlert(s, m.question, note);
+    // recovery: stop the simulation and let the monitor read green again
+    s.simNetflixTicks = 0;
+    s.consecFails.set("netflix-cdn", 0);
+    pushEvent(s, "incident", "netflix-cdn recovered; simulated outage resolved");
+  }
 }
 
 function simTick(s: AppState, ts = Date.now()) {
@@ -55,6 +104,9 @@ function simTick(s: AppState, ts = Date.now()) {
 async function realTick(s: AppState) {
   const signals = await collectSignals();
   for (const sig of signals) {
+    // while the netflix demo simulation runs, the sim owns that service's
+    // readings; the real (green) monitor would fight the story mid-demo
+    if (sig.service === "netflix-cdn" && s.simNetflixTicks > 0) continue;
     appendReading(s, {
       ts: Date.now(),
       source: sig.source,
@@ -124,7 +176,9 @@ function evaluateRealSettlements(s: AppState) {
   const nflx = s.markets.get("netflix-30m");
   const nflxDown = s.downReadings.get("netflix-cdn") ?? 0;
   if (nflx?.status === "open" && nflxDown >= CONFIG.stripeDownReadings) {
-    settleMarket(s, "netflix-30m", "YES", `synthetic monitor logged ${nflxDown} failed checks (≈${Math.round((nflxDown * CONFIG.realTickMs) / 60000)} min of downtime)`);
+    const note = `synthetic monitor logged ${nflxDown} failed checks (≈${Math.round((nflxDown * CONFIG.realTickMs) / 60000)} min of downtime)`;
+    settleMarket(s, "netflix-30m", "YES", note);
+    fireDowntimeVoiceAlert(s, nflx.question, note);
   }
 
   // Valorant: cumulative failed checks against the Riot auth edge
@@ -174,6 +228,7 @@ function botStep(s: AppState, ts = Date.now()) {
 function tickSimTracked(ts = Date.now()) {
   const s = getState();
   simTick(s, ts);
+  simNetflixTick(s, ts);
   botStep(s, ts);
   // append a history point so charts move between trades
   for (const m of s.markets.values()) {

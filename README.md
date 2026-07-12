@@ -41,6 +41,26 @@ npm install && npm run dev
 - **Crypto rail (devnet)**: deposit SOL via Phantom; the server verifies the transaction
   on-chain (destination, amount, replay) and credits play-USD at $10K/SOL.
 
+## The Netflix demo arc (one button, start to finish)
+
+Ops console → "simulate outage · netflix". What happens, in order: the globe pin over the
+Netflix region turns yellow (oracle confirming) then red (confirmed down), the LP bots rush
+to buy YES and the NFLX30 price spikes, after ~25s of failing readings the contract settles
+YES, every protection holder is paid instantly (payout banner), and Twilio places a real
+phone call with an AI-written script announcing the outage. Bet play money on it first:
+click the Netflix pin on the globe, or the YES/NO buttons on the card or market page.
+
+Voice alert env (optional, on Vercel or .env.local; the demo degrades gracefully without):
+
+```
+NVIDIA_API_KEY=nvapi-...        # script generation (integrate.api.nvidia.com)
+NVIDIA_MODEL=meta/llama-3.1-8b-instruct
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+TWILIO_FROM_NUMBER=+1...        # your Twilio number
+ALERT_PHONE_NUMBER=+91...       # who gets the call
+```
+
 ## Agents welcome
 
 Cumulus is agent-native: any AI agent can discover the API, connect over MCP, and trade.

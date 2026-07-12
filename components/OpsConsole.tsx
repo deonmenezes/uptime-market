@@ -8,9 +8,12 @@ import { useMarketStore } from "./StoreContext";
 export default function OpsConsole() {
   const { snap, injectIncident, settle } = useMarketStore();
   const [busy, setBusy] = useState(false);
+  const [busyNflx, setBusyNflx] = useState(false);
 
   const demo = snap?.markets.find((m) => m.id === "demo-checkout");
   const demoOpen = demo?.status === "open";
+  const nflx = snap?.markets.find((m) => m.id === "netflix-30m");
+  const nflxOpen = nflx?.status === "open";
 
   const fire = async () => {
     setBusy(true);
@@ -18,6 +21,15 @@ export default function OpsConsole() {
       await injectIncident();
     } finally {
       setBusy(false);
+    }
+  };
+
+  const fireNetflix = async () => {
+    setBusyNflx(true);
+    try {
+      await injectIncident("netflix-cdn");
+    } finally {
+      setBusyNflx(false);
     }
   };
 
@@ -45,6 +57,20 @@ export default function OpsConsole() {
           <span>inject outage · checkout-service</span>
           <span className="text-down">{busy ? "firing…" : demoOpen ? "▲" : "settled"}</span>
         </button>
+
+        <button
+          onClick={fireNetflix}
+          disabled={busyNflx || !nflxOpen}
+          className="flex w-full items-center justify-between rounded-md border border-edge bg-ink px-3 py-2.5 font-mono text-[11px] text-bone transition-colors hover:border-down hover:text-down disabled:opacity-40"
+        >
+          <span>simulate outage · netflix (full arc + voice call)</span>
+          <span className="text-down">{busyNflx ? "firing…" : nflxOpen ? "▲" : "settled"}</span>
+        </button>
+        <p className="font-mono text-[9px] leading-relaxed text-fog/60">
+          netflix arc: globe turns yellow then red → LPs reprice → NFLX30 settles YES in ~25s →
+          holders paid → Twilio places an AI voice call (script by NVIDIA LLM) announcing the
+          outage. time-compressed simulation; the real netflix monitor resumes after settlement.
+        </p>
 
         {demoOpen && (
           <div className="flex gap-2 border-t border-edge pt-2">

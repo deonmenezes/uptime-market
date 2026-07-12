@@ -9,18 +9,19 @@ import { fmtPct, fmtUsd, fmtUsdFull } from "@/lib/format";
 const QUICK = [1_000, 5_000, 10_000, 50_000];
 
 // The trader costume: the same contract as shares at a probability.
-export default function TradePanel({ market }: { market: MarketView }) {
+export default function TradePanel({ market, initialSide }: { market: MarketView; initialSide?: Side }) {
   const { snap, trade } = useMarketStore();
-  const [side, setSide] = useState<Side>("NO");
+  const [side, setSide] = useState<Side>(initialSide ?? "NO");
   const [action, setAction] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("5000");
 
   // deep link: /m/<id>?side=YES preselects the side (card buttons, globe clicks)
   useEffect(() => {
+    if (initialSide) return; // an explicit pick on the page wins over the URL
     const want = new URLSearchParams(window.location.search).get("side");
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (want === "YES" || want === "NO") setSide(want);
-  }, []);
+  }, [initialSide]);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

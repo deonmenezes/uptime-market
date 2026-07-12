@@ -30,6 +30,9 @@ export const CONFIG = {
   // a monitor failure only counts toward settlement after this many consecutive
   // failing readings — one egress blip from our own runtime is not an outage
   monitorConfirmFails: 2,
+  // netflix demo simulation: failing sim readings (2s cadence) before the
+  // contract settles YES. Time-compressed so the full arc fits a stage demo.
+  netflixSimBreachTicks: 12,
 } as const;
 
 export interface AppState {
@@ -43,6 +46,8 @@ export interface AppState {
   consecFails: Map<string, number>; // per service, current consecutive failing readings
   simIncidentTicks: number; // remaining ticks of the injected demo incident
   simConsecutiveDown: number;
+  simNetflixTicks: number; // remaining ticks of the simulated netflix outage
+  simNetflixDown: number; // failing simulated netflix readings so far
   trades: TradeRecord[];
   events: FeedEvent[];
   seq: number;
@@ -194,6 +199,8 @@ function seedState(): AppState {
     consecFails: new Map(),
     simIncidentTicks: 0,
     simConsecutiveDown: 0,
+    simNetflixTicks: 0,
+    simNetflixDown: 0,
     trades: [],
     events: [],
     seq: 0,

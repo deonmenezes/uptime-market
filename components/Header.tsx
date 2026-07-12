@@ -46,6 +46,7 @@ export default function Header() {
           <nav className="hidden items-center gap-4 font-mono text-xs uppercase tracking-wider text-fog lg:flex">
             <Link href="/" className="hover:text-up">markets</Link>
             <Link href="/oracle" className="hover:text-up">oracle log</Link>
+            <Link href="/agents" className="hover:text-up">agents</Link>
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
