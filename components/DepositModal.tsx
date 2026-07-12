@@ -42,15 +42,15 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
     run(async () => {
       setStatus("requesting 1 devnet SOL from the faucet…");
       await requestAirdrop();
-      setStatus("airdrop landed — you have devnet SOL");
+      setStatus("airdrop landed, you have devnet SOL");
     });
 
   const deposit = () =>
     run(async () => {
       if (!snap) return;
-      setStatus(`sending ${amount} SOL on devnet — approve in Phantom…`);
+      setStatus(`sending ${amount} SOL on devnet, approve in Phantom…`);
       const signature = await depositSol(snap.treasury, amount);
-      setStatus("confirmed on-chain — verifying server-side…");
+      setStatus("confirmed on-chain, verifying server-side…");
       const res = await creditDeposit(signature);
       setStatus(`credited $${res.usd.toLocaleString()}. balance: $${Math.round(res.newBalance).toLocaleString()}`);
     });
@@ -139,7 +139,7 @@ export default function DepositModal({ onClose }: { onClose: () => void }) {
           {error && <p className="font-mono text-[11px] leading-relaxed text-down">{error}</p>}
 
           <p className="font-mono text-[10px] leading-relaxed text-fog/60">
-            devnet only — no real funds. server verifies the transaction on-chain before crediting;
+            devnet only, no real funds. server verifies the transaction on-chain before crediting;
             treasury: {snap?.treasury.slice(0, 8)}…
           </p>
         </div>

@@ -109,10 +109,17 @@ export interface MarketView extends Market {
   exposureUsd: number; // YES shares outstanding = max payout owed
 }
 
+// up: last reading ok. confirming: failing readings below the confirmation
+// threshold — the oracle is deciding whether this is a real outage. down:
+// confirmed degradation, counting toward settlement. unknown: the status feed
+// itself was unreachable (never counts as downtime).
+export type MonitorHealth = "up" | "confirming" | "down" | "unknown";
+
 export interface MonitorStatus {
   service: string;
   label: string;
   ok: boolean;
+  health: MonitorHealth;
   latencyMs: number | null;
   indicator: string | null;
   checkedTs: number;

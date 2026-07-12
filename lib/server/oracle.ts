@@ -81,7 +81,7 @@ async function realTick(s: AppState) {
         pushEvent(
           s,
           "incident",
-          `oracle: degradation confirmed on ${sig.service} — ${fails} consecutive failing readings (${sig.summary})`
+          `oracle: degradation confirmed on ${sig.service}: ${fails} consecutive failing readings (${sig.summary})`
         );
       } else if (fails > CONFIG.monitorConfirmFails) {
         s.downReadings.set(sig.service, (s.downReadings.get(sig.service) ?? 0) + 1);

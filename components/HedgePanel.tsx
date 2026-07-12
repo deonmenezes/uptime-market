@@ -33,7 +33,7 @@ export default function HedgePanel({ market }: { market: MarketView }) {
     try {
       const res = await hedge(market.id, n);
       setConfirmation(
-        `Protection active. If this event occurs before ${market.closesLabel}, you are paid ${fmtUsdFull(n)} automatically — no claim to file. Premium charged: ${fmtUsdFull(res.premium)} (${(res.rate * 100).toFixed(2)}%).`
+        `Protection active. If this event occurs before ${market.closesLabel}, you are paid ${fmtUsdFull(n)} automatically, no claim to file. Premium charged: ${fmtUsdFull(res.premium)} (${(res.rate * 100).toFixed(2)}%).`
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -106,7 +106,7 @@ export default function HedgePanel({ market }: { market: MarketView }) {
         </div>
         <div className="flex justify-between text-fog">
           <span>claims process</span>
-          <span className="text-bone">none — paid automatically</span>
+          <span className="text-bone">none, paid automatically</span>
         </div>
       </div>
 
@@ -137,7 +137,7 @@ export default function HedgePanel({ market }: { market: MarketView }) {
       {error && <p className="mt-3 font-mono text-[11px] text-down">{error}</p>}
 
       <p className="mt-3 text-center font-mono text-[9px] leading-relaxed text-fog/60">
-        this is a YES position on the same book the traders see — flip the toggle
+        this is a YES position on the same book the traders see. Flip the toggle
       </p>
     </div>
   );

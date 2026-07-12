@@ -8,7 +8,7 @@ import Leaderboard from "./Leaderboard";
 import OpsConsole from "./OpsConsole";
 import NameGate from "./NameGate";
 import TradeTape from "./TradeTape";
-import HeroSlider from "./HeroSlider";
+import DowntimeGlobe from "./DowntimeGlobe";
 
 export default function Board() {
   const { snap, flashes, mode, setMode } = useMarketStore();
@@ -19,7 +19,7 @@ export default function Board() {
       <StatusStrip />
       <LiveTicker />
 
-      {/* masthead: copy left, codex slider right */}
+      {/* masthead: copy left, live downtime globe right */}
       <section className="border-b border-edge bg-panel">
         <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 md:py-14 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
           <div className="animate-fade-in">
@@ -33,7 +33,7 @@ export default function Board() {
             <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-fog">
               An open market where any company can buy real downtime protection, anyone can sell
               it, and settlement is a machine reading cloud telemetry. A parametric policy is a
-              prediction market contract — flip the toggle and watch.
+              prediction market contract. Flip the toggle and watch.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
               <button
@@ -54,7 +54,11 @@ export default function Board() {
               </div>
             </div>
           </div>
-          <HeroSlider />
+          <div className="relative overflow-hidden rounded-xl border border-edge bg-panel shadow-[0_16px_48px_rgba(22,33,27,0.10)]">
+            <div className="relative aspect-[16/10]">
+              <DowntimeGlobe />
+            </div>
+          </div>
         </div>
       </section>
 

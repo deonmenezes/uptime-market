@@ -144,7 +144,7 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
               </div>
               <p className="mt-1.5 text-xs leading-relaxed text-fog">{market.trigger}</p>
               <p className="mt-1.5 font-mono text-[10px] text-fog/70">
-                no committee resolves this — the monitor does.{" "}
+                no committee resolves this. The monitor does.{" "}
                 <Link href="/oracle" className="text-info hover:underline">
                   inspect the signed reading chain →
                 </Link>
@@ -171,7 +171,7 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
                 />
               </div>
               <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-fog/70">
-                every dollar of written protection is escrowed at $1 per share — sellers cannot write
+                every dollar of written protection is escrowed at $1 per share, so sellers cannot write
                 uncollateralized coverage
               </p>
             </div>

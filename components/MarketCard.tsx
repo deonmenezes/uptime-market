@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { MarketView } from "@/lib/market/types";
 import type { FlashInfo } from "@/lib/client/useStore";
 import { fmtPct, fmtUsd } from "@/lib/format";
@@ -16,7 +17,14 @@ export default function MarketCard({
   flash: FlashInfo | undefined;
 }) {
   const { mode } = useMarketStore();
+  const router = useRouter();
   const settled = market.status === "settled";
+
+  const goTrade = (e: React.MouseEvent, side: "YES" | "NO") => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/m/${market.id}?side=${side}`);
+  };
   const src = SOURCES[market.service];
   const collateralized = market.exposureUsd > 0 ? Math.min(1, market.escrowUsd / market.exposureUsd) : 1;
 
@@ -99,6 +107,24 @@ export default function MarketCard({
           </div>
           <Sparkline data={market.spark} />
         </div>
+
+        {/* one-tap side selection */}
+        {!settled && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={(e) => goTrade(e, "YES")}
+              className="rounded-md border border-up/40 bg-up/10 py-2 font-mono text-[11px] font-bold text-updim transition-colors hover:bg-up hover:text-white"
+            >
+              YES {Math.round(market.price * 100)}¢
+            </button>
+            <button
+              onClick={(e) => goTrade(e, "NO")}
+              className="rounded-md border border-down/40 bg-down/10 py-2 font-mono text-[11px] font-bold text-down transition-colors hover:bg-down hover:text-white"
+            >
+              NO {Math.round((1 - market.price) * 100)}¢
+            </button>
+          </div>
+        )}
 
         {/* collateral escrow bar */}
         <div className="mt-3">

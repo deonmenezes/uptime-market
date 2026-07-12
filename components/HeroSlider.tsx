@@ -8,7 +8,7 @@ const SLIDES: Array<{ src?: string; caption: string }> = [
   { caption: "Live oracle telemetry, mapped to the regions it watches" },
   { src: "/art/slides/slide-1.png", caption: "Live probability, priced by the people on call" },
   { src: "/art/slides/slide-2.png", caption: "Every service, every region, one market" },
-  { src: "/art/slides/slide-3.png", caption: "Telemetry is the oracle — no committee, no dispute" },
+  { src: "/art/slides/slide-3.png", caption: "Telemetry is the oracle. No committee, no dispute" },
   { src: "/art/slides/slide-4.png", caption: "Runs where you run: AWS, Google Cloud, Cloudflare" },
   { src: "/art/slides/slide-5.png", caption: "Settlement in seconds, straight from the pulse" },
 ];

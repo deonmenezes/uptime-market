@@ -10,7 +10,7 @@ const plexSans = IBM_Plex_Sans({ weight: ["400", "500", "600"], subsets: ["latin
 const plexMono = IBM_Plex_Mono({ weight: ["400", "500", "600"], subsets: ["latin"], variable: "--font-plex-mono" });
 
 export const metadata: Metadata = {
-  title: "Cumulus — tradeable downtime protection",
+  title: "Cumulus: tradeable downtime protection",
   description:
     "An open market for real downtime protection: hedge cloud outages or sell coverage, settled automatically by telemetry.",
 };

@@ -48,14 +48,14 @@ export default function PayoutBanner() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-up">
-              {mode === "hedger" ? "protection paid — no claim filed" : "position settled — paid in full"}
+              {mode === "hedger" ? "protection paid, no claim filed" : "position settled, paid in full"}
             </div>
             <div className="mt-1 font-display text-2xl font-bold tracking-tight text-bone">
               {fmtUsdFull(payout.amountUsd)} paid to your account
             </div>
             <p className="mt-1 text-xs leading-relaxed text-fog">
               {payout.ticker} settled {payout.outcome}: {payout.question}. The oracle confirmed the
-              event and paid every holder automatically — no adjuster, no paperwork, no wait.
+              event and paid every holder automatically. No adjuster, no paperwork, no wait.
             </p>
             <p className="mt-1 truncate font-mono text-[10px] text-fog/70">{payout.settledNote}</p>
           </div>

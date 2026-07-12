@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MarketView, Side } from "@/lib/market/types";
 import { useMarketStore } from "./StoreContext";
 import { sharesForSpend, proceedsForSale } from "@/lib/market/lmsr";
@@ -14,6 +14,13 @@ export default function TradePanel({ market }: { market: MarketView }) {
   const [side, setSide] = useState<Side>("NO");
   const [action, setAction] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("5000");
+
+  // deep link: /m/<id>?side=YES preselects the side (card buttons, globe clicks)
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get("side");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (want === "YES" || want === "NO") setSide(want);
+  }, []);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

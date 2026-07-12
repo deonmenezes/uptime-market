@@ -23,7 +23,7 @@ export default function StatusStrip() {
         {snap.markets.map((m) => {
           const src = SOURCES[m.service];
           const monitor = snap.monitors.find((x) => x.service === m.service);
-          const degraded = monitor ? !monitor.ok : false;
+          const health = monitor ? (monitor.health ?? (monitor.ok ? "up" : "down")) : "up";
           return (
             <a key={m.id} href={`/m/${m.id}`} className="flex shrink-0 items-center gap-2.5">
               {src && (
@@ -35,7 +35,13 @@ export default function StatusStrip() {
                   <span
                     className={[
                       "h-1.5 w-1.5 rounded-full",
-                      m.status === "settled" ? "bg-gold" : degraded ? "animate-siren bg-down" : "bg-up",
+                      m.status === "settled"
+                        ? "bg-gold"
+                        : health === "down"
+                          ? "animate-siren bg-down"
+                          : health === "confirming"
+                            ? "animate-pulse bg-gold"
+                            : "bg-up",
                     ].join(" ")}
                   />
                   <span className="font-mono text-[10px] font-semibold text-bone">{m.ticker}</span>

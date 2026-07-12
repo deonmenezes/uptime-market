@@ -8,8 +8,10 @@
 // Land data: world-atlas land-110m rasterized to a 2°×2° grid at build time
 // (scripts note: 180 cols × 90 rows, 1 bit per cell, little-endian, base64).
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMarketStore } from "./StoreContext";
+import type { MonitorHealth } from "@/lib/market/types";
 
 const LAND_B64 =
   "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/gHwPwAAAAAAAAAAAAAAAAAAAAAAAOj//P//BwAAAAAAAAIAAAAAAAAAAABguA////8AAB8AAAAAPAAAAAAAAAAAwADkw////wEABAAAAABgAAAAAAAAAAAAHPUD4P//AAAAAMAA4P8DgBsAAAAAAHAR7Q3A/38AAAAAMAD8/38DAAAAARgAkD/MPwD/XwAAwAAguP8AAAjA/gcAfyCAsUUO/wDg//8H8P9IAAAAAABAAPgAAAAAAB58AP7//wGAAkAAAAAAAAAAcwAAAABAB/7Af/j/YCgAAAAAAAAAAAAA/////x/AAh4AAMDn////////////D4C/////B3gAHAAA4Of///////////QAAB7g//8HeAIAAADgx/////////9BBAAACID//x/wBwAAgEHj////////fwAPAAABAP7///kfAADAQfD///////8/AAcAAAAA/v//+T8AAGDz//////////8DAQAAAAD8////PwAAAPv//////////wIAAAAAAOj///9iAAAA/v//////////AgAAAAAA8P///4MAAAD+/////////38CAAAAAADw////BgAAAP7+6fP/////PwAAAAAAAPD//38AAADgj/nA8/////8fAwAAAAAA8P//PwAAAMBD9v7n/////wcBAAAAAADw//8PAAAA4AO0/+f///8fAgEAAAAAAOD//w8AAACA4QL/5////3/GAAAAAAAAwP//DwAAAIB/QPT/////P/IAAAAAAACA//8DAAAAwP8A8P////8/GAAAAAAAAAD//wEAAADg//f+/////38AAAAAAAAAAPwDAgAAAOD////7////fwAAAAAAAAAA+gECAAAA+P//9+f///8/AAAAAAAAAAD0AQAAAAD4///nL/j//z8AAAAAAAAAAOABAwAAAPz//+//4P//TwAAAAAAAAAA4GEIAAAA/v//33/gP/8AAAAAAAAAAADAM0AAAAD8//+ff8APfgEAAAAAAAAAAAA/AAAAAPz//58fgAf+QAAAAAAAAAAAAPAAAAAA/v//vweAA/hAAAAAAAAAAAAAwAAAAAD8//9/AYAD+EEAAAAAAAAAAACA8AAAAPz///8MAAPIAAEAAAAAAAAAAAD1DwAA+P///wcABUgAAAAAAAAAAAAAAPgfAADw////BwAEAAABAAAAAAAAAAAA+P8AAGDh//8DAAA0GAAAAAAAAAAAAAD4/wEAAID//wEAACgcAAAAAAAAAAAAAPz/AQAAgP//AAAAGF4AAAAAAAAAAAAA/P8HAADA/38AAAAwHhgAAAAAAAAAAAD8/z8AAID/PwAAAGBu1AEAAAAAAAAAAP7//wAAAP8/AAAAQICABwAAAAAAAAAA/P//AQAA/z8AAACAA4APAQAAAAAAAAD4//8AAAD/PwAAAAAQAQsEAAAAAAAAAPj/fwAAAP4/AAAAAAAAAAAAAAAAAAAA8P9/AAAA/z8EAAAAADgCAAAAAAAAAADw/38AAAD/PwQAAAAAPwYgAAAAAAAAAMD/PwAAAP8fBwAAAIB/BgAAAAAAAAAAgP8/AAAA/w8HAAAAgP8HAAAAAAAAAACA/z8AAAD+DwMAAADw/x8QAAAAAAAAAID/DwAAAP4PAwAAAPj/HwAAAAAAAAAAgP8DAAAA/gcBAAAA+P8/AAAAAAAAAACA/wMAAAD8AwAAAAD4/38AAAAAAAAAAMD/AQAAAPwDAAAAAPj/fwAAAAAAAAAAwP8BAAAA+AEAAAAA8P9/AAAAAAAAAADA/wAAAAD4AAAAAADw4D8AAAAAAAAAAMAfAAAAAAAAAAAAABCAHwABAAAAAAAA4D8AAAAAAAAAAAAAAAAfAAIAAAAAAADgBwAAAAAAAAAAAAAAAAAABgAAAAAAAOAFAAAAAAAAAAAAAAAADAADAAAAAAAAwAMAAAAAAAAAAAAAAAAIgAEAAAAAAADgAQAAAAAAAAAAAAAAAADAAAAAAAAAAOABAAAAAAAAAAAAAAAAAAAAAAAAAAAA8AAAAAAAAAAAEAAAAAAAAAAAAAAAAABwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAB4AEDwn/8HAAAAAAAAAAAAAwAAAAAAyP8f/v////8AAAAAAAAAAMAHAAAA+P///8///////z8AAAAAAMAhAA8AAPj/////////////fwAAAPD/L///AwAA/v////////////8fAACA/////wcAAPj//////////////w8AAPL/////BwAO////////////////DwAAAP////9/AAH///////////////8DAADg/////////////////////////x8AAP4DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -134,19 +136,35 @@ function loadLogo(src: string): Promise<HTMLImageElement | null> {
     .catch(() => null);
 }
 
-export default function DowntimeGlobe() {
+export default function DowntimeGlobe({ expandable = true }: { expandable?: boolean }) {
   const { snap } = useMarketStore();
+  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const statusRef = useRef<Map<string, boolean>>(new Map());
+  const statusRef = useRef<Map<string, MonitorHealth>>(new Map());
   const logosRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const marketByServiceRef = useRef<Map<string, string>>(new Map());
+  const hitsRef = useRef<Array<{ x: number; y: number; service: string }>>([]);
+  const [fullscreen, setFullscreen] = useState(false);
 
-  // latest monitor status in a ref so the rAF loop reads it without re-subscribing
+  // latest monitor health + service->market mapping in refs for the rAF loop
   useEffect(() => {
     if (!snap) return;
-    const m = new Map<string, boolean>();
-    for (const mon of snap.monitors) m.set(mon.service, mon.ok);
+    const m = new Map<string, MonitorHealth>();
+    for (const mon of snap.monitors) m.set(mon.service, mon.health ?? (mon.ok ? "up" : "down"));
     statusRef.current = m;
+    const mm = new Map<string, string>();
+    for (const mk of snap.markets) if (mk.status === "open") mm.set(mk.service, mk.id);
+    marketByServiceRef.current = mm;
   }, [snap]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
 
   useEffect(() => {
     let alive = true;
@@ -247,9 +265,9 @@ export default function DowntimeGlobe() {
 
       // arcs (lerp lat/lon, lift toward midpoint)
       for (const [a, b] of arcs) {
-        const aDown = a.service ? statusRef.current.get(a.service) === false : false;
-        const bDown = b.service ? statusRef.current.get(b.service) === false : false;
-        const hot = aDown || bDown;
+        const aH = a.service ? statusRef.current.get(a.service) : undefined;
+        const bH = b.service ? statusRef.current.get(b.service) : undefined;
+        const hot = aH === "down" || bH === "down";
         ctx.beginPath();
         let pen = false;
         let dLon = b.lon - a.lon;
@@ -271,21 +289,26 @@ export default function DowntimeGlobe() {
       }
 
       // sites: dots + incident pulses first, then chips front-to-back
-      const chipQueue: Array<{ s: Site; p: P3; down: boolean }> = [];
+      hitsRef.current = [];
+      const chipQueue: Array<{ s: Site; p: P3; health: MonitorHealth | undefined }> = [];
       for (const s of SITES) {
         const p = project(s.lat, s.lon, lon0, r, cx, cy);
         if (p.z <= 0) continue;
         const monitored = s.service !== undefined;
-        const down = monitored && statusRef.current.get(s.service!) === false;
+        const health = monitored ? statusRef.current.get(s.service!) : undefined;
+        const down = health === "down";
+        const confirming = health === "confirming";
         const near = Math.min(1, Math.max(0.35, p.z));
 
-        if (down) {
+        if (down || confirming) {
           const phase = (t % 1600) / 1600;
           for (const off of [0, 0.5]) {
             const q = (phase + off) % 1;
             ctx.beginPath();
             ctx.arc(p.x, p.y, 4 + q * 18, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(207,63,56,${(1 - q) * 0.55 * near})`;
+            ctx.strokeStyle = down
+              ? `rgba(207,63,56,${(1 - q) * 0.55 * near})`
+              : `rgba(168,124,31,${(1 - q) * 0.5 * near})`;
             ctx.lineWidth = 1.5;
             ctx.stroke();
           }
@@ -295,31 +318,42 @@ export default function DowntimeGlobe() {
         ctx.arc(p.x, p.y, monitored ? 3 : 1.8, 0, Math.PI * 2);
         ctx.fillStyle = down
           ? `rgba(207,63,56,${near})`
-          : monitored
-            ? `rgba(12,138,77,${near})`
-            : `rgba(95,111,100,${0.5 * near})`;
+          : confirming
+            ? `rgba(168,124,31,${near})`
+            : monitored
+              ? `rgba(12,138,77,${near})`
+              : `rgba(95,111,100,${0.5 * near})`;
         ctx.fill();
 
-        if (s.logo && p.z > 0.25) chipQueue.push({ s, p, down });
-        else if (down && p.z > 0.25) {
+        if (monitored && p.z > 0.25) hitsRef.current.push({ x: p.x, y: p.y, service: s.service! });
+        if (s.logo && p.z > 0.25) chipQueue.push({ s, p, health });
+        else if ((down || confirming) && p.z > 0.25) {
           ctx.font = "9px var(--font-plex-mono), monospace";
-          ctx.fillStyle = `rgba(207,63,56,${near})`;
+          ctx.fillStyle = down ? `rgba(207,63,56,${near})` : `rgba(168,124,31,${near})`;
           ctx.textBaseline = "middle";
-          ctx.fillText(`${s.name} — DEGRADED`, p.x + 7, p.y);
+          ctx.fillText(`${s.name}: ${down ? "DOWN" : "CONFIRMING"}`, p.x + 7, p.y);
         }
       }
 
       // logo chips, back-to-front so the nearest reads on top
       chipQueue.sort((a, b) => a.p.z - b.p.z);
       const chip = 24;
-      for (const { s, p, down } of chipQueue) {
+      for (const { s, p, health } of chipQueue) {
         const img = logosRef.current.get(s.logo!);
+        const down = health === "down";
+        const confirming = health === "confirming";
         const alpha = Math.min(1, Math.max(0.45, p.z * 1.3));
         const stem = 12;
         const cyChip = s.flip ? p.y + stem + chip / 2 : p.y - stem - chip / 2;
+        const edgeColor = down ? "#cf3f38" : confirming ? "#a87c1f" : "#ccd6ca";
+        if (s.service) hitsRef.current.push({ x: p.x, y: cyChip, service: s.service });
 
         ctx.globalAlpha = alpha;
-        ctx.strokeStyle = down ? "rgba(207,63,56,0.7)" : "rgba(95,111,100,0.45)";
+        ctx.strokeStyle = down
+          ? "rgba(207,63,56,0.7)"
+          : confirming
+            ? "rgba(168,124,31,0.7)"
+            : "rgba(95,111,100,0.45)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(p.x, s.flip ? p.y + 4 : p.y - 4);
@@ -330,8 +364,8 @@ export default function DowntimeGlobe() {
         ctx.roundRect(p.x - chip / 2, cyChip - chip / 2, chip, chip, 6);
         ctx.fillStyle = "#ffffff";
         ctx.fill();
-        ctx.strokeStyle = down ? "#cf3f38" : "#ccd6ca";
-        ctx.lineWidth = down ? 1.5 : 1;
+        ctx.strokeStyle = edgeColor;
+        ctx.lineWidth = down || confirming ? 1.5 : 1;
         ctx.stroke();
 
         if (img) {
@@ -342,18 +376,18 @@ export default function DowntimeGlobe() {
         // status LED on the chip corner
         ctx.beginPath();
         ctx.arc(p.x + chip / 2 - 2, cyChip - chip / 2 + 2, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = down ? "#cf3f38" : s.service ? "#0c8a4d" : "#ccd6ca";
+        ctx.fillStyle = down ? "#cf3f38" : confirming ? "#a87c1f" : s.service ? "#0c8a4d" : "#ccd6ca";
         ctx.fill();
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        if (down) {
+        if (down || confirming) {
           ctx.font = "bold 9px var(--font-plex-mono), monospace";
-          ctx.fillStyle = "#cf3f38";
+          ctx.fillStyle = down ? "#cf3f38" : "#a87c1f";
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
-          ctx.fillText("DEGRADED", p.x, s.flip ? cyChip + chip / 2 + 3 : cyChip - chip / 2 - 12);
+          ctx.fillText(down ? "DOWN" : "CONFIRMING", p.x, s.flip ? cyChip + chip / 2 + 3 : cyChip - chip / 2 - 12);
           ctx.textAlign = "left";
         }
         ctx.globalAlpha = 1;
@@ -369,50 +403,148 @@ export default function DowntimeGlobe() {
     };
   }, []);
 
-  const degraded = snap ? snap.monitors.filter((m) => !m.ok) : [];
+  const down = snap ? snap.monitors.filter((m) => m.health === "down") : [];
+  const confirming = snap ? snap.monitors.filter((m) => m.health === "confirming") : [];
+
+  const hitAt = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    let best: { service: string; d: number } | null = null;
+    for (const h of hitsRef.current) {
+      const d = Math.hypot(h.x - mx, h.y - my);
+      if (d < 16 && (!best || d < best.d)) best = { service: h.service, d };
+    }
+    return best;
+  };
+
+  const onClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const hit = hitAt(e);
+    if (hit) {
+      const marketId = marketByServiceRef.current.get(hit.service);
+      if (marketId) {
+        router.push(`/m/${marketId}`);
+        return;
+      }
+    }
+    if (expandable) setFullscreen(true);
+  };
+
+  const onMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.currentTarget.style.cursor = hitAt(e) ? "pointer" : expandable ? "zoom-in" : "default";
+  };
 
   return (
     <div className="relative h-full w-full">
-      <canvas ref={canvasRef} className="h-full w-full" aria-label="global datacenter and API status" />
+      <canvas
+        ref={canvasRef}
+        onClick={onClick}
+        onMouseMove={onMove}
+        className="h-full w-full"
+        aria-label="global datacenter and API status. click a pin to open its market"
+      />
       <div className="pointer-events-none absolute left-4 top-3">
         <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-fog">
           oracle telemetry · live
         </div>
         <div className="mt-1 flex items-center gap-2 font-mono text-[10px]">
-          {degraded.length === 0 ? (
-            <>
-              <span className="inline-block h-2 w-2 rounded-full bg-up" />
-              <span className="text-updim">all monitored regions nominal</span>
-            </>
-          ) : (
+          {down.length > 0 ? (
             <>
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-down" />
               <span className="text-down">
-                {degraded.length} service{degraded.length > 1 ? "s" : ""} degraded —{" "}
-                {degraded.map((d) => d.label).join(", ")}
+                {down.length} service{down.length > 1 ? "s" : ""} down: {down.map((d) => d.label).join(", ")}
               </span>
+            </>
+          ) : confirming.length > 0 ? (
+            <>
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-gold" />
+              <span className="text-gold">
+                confirming degradation on {confirming.map((d) => d.label).join(", ")}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="inline-block h-2 w-2 rounded-full bg-up" />
+              <span className="text-updim">all monitored regions nominal</span>
             </>
           )}
         </div>
       </div>
 
-      {/* live per-service legend: what's down, what's not, straight from the oracle */}
+      {/* live per-service legend: green up, yellow deciding, red confirmed down */}
       {snap && (
         <div className="pointer-events-none absolute right-4 top-3 hidden rounded-md border border-edge bg-white/80 px-3 py-2 backdrop-blur-sm md:block">
-          {snap.monitors.map((m) => (
-            <div key={m.service} className="flex items-center gap-2 py-0.5 font-mono text-[9px]">
-              <span
-                className={[
-                  "inline-block h-1.5 w-1.5 rounded-full",
-                  m.ok ? "bg-up" : "animate-pulse bg-down",
-                ].join(" ")}
-              />
-              <span className={m.ok ? "text-fog" : "font-semibold text-down"}>{m.label}</span>
-              <span className="ml-auto pl-3 text-fog/60">
-                {m.ok ? (m.latencyMs !== null ? `${m.latencyMs}ms` : "feed ok") : (m.indicator ?? "down")}
-              </span>
+          {snap.monitors.map((m) => {
+            const h = m.health ?? (m.ok ? "up" : "down");
+            return (
+              <div key={m.service} className="flex items-center gap-2 py-0.5 font-mono text-[9px]">
+                <span
+                  className={[
+                    "inline-block h-1.5 w-1.5 rounded-full",
+                    h === "down"
+                      ? "animate-pulse bg-down"
+                      : h === "confirming"
+                        ? "animate-pulse bg-gold"
+                        : h === "unknown"
+                          ? "bg-edge2"
+                          : "bg-up",
+                  ].join(" ")}
+                />
+                <span
+                  className={
+                    h === "down"
+                      ? "font-semibold text-down"
+                      : h === "confirming"
+                        ? "font-semibold text-gold"
+                        : "text-fog"
+                  }
+                >
+                  {m.label}
+                </span>
+                <span className="ml-auto pl-3 text-fog/60">
+                  {h === "up" && (m.latencyMs !== null ? `${m.latencyMs}ms` : "feed ok")}
+                  {h === "confirming" && "checking"}
+                  {h === "down" && (m.indicator ?? "down")}
+                  {h === "unknown" && "no data"}
+                </span>
+              </div>
+            );
+          })}
+          <div className="mt-1.5 flex items-center gap-3 border-t border-edge pt-1.5 font-mono text-[8px] text-fog/70">
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-up" /> up
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-gold" /> confirming
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-down" /> down
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute bottom-3 left-4 font-mono text-[9px] text-fog/70">
+        click a pin to trade its market{expandable ? " · click the globe to expand" : ""}
+      </div>
+
+      {/* fullscreen overlay */}
+      {expandable && fullscreen && (
+        <div className="fixed inset-0 z-[90] flex flex-col bg-ink/98 backdrop-blur-sm">
+          <div className="flex items-center justify-between border-b border-edge px-5 py-3">
+            <div className="font-mono text-[11px] uppercase tracking-[0.25em] text-fog">
+              cumulus · global downtime map
             </div>
-          ))}
+            <button
+              onClick={() => setFullscreen(false)}
+              className="rounded-sm border border-edge px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-fog hover:border-edge2 hover:text-bone"
+            >
+              close (esc)
+            </button>
+          </div>
+          <div className="relative min-h-0 flex-1">
+            <DowntimeGlobe expandable={false} />
+          </div>
         </div>
       )}
     </div>

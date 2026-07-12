@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CONFIG, getState } from "@/lib/server/state";
 import { ensureOracle } from "@/lib/server/oracle";
 import { priceYes } from "@/lib/market/lmsr";
-import type { LeaderboardRow, MarketView, MonitorStatus, StateSnapshot } from "@/lib/market/types";
+import type { LeaderboardRow, MarketView, MonitorHealth, MonitorStatus, StateSnapshot } from "@/lib/market/types";
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +49,17 @@ export async function GET(req: NextRequest) {
     .map(([service, label]) => {
       const last = s.lastByService.get(service);
       if (!last) return null;
+      const fails = s.consecFails.get(service) ?? 0;
+      let health: MonitorHealth;
+      if (last.indicator === "feed-unreachable") health = "unknown";
+      else if (last.ok) health = "up";
+      else if (service === "checkout-service" || fails >= CONFIG.monitorConfirmFails) health = "down";
+      else health = "confirming"; // failing, but the oracle hasn't confirmed it yet
       return {
         service,
         label,
         ok: last.ok,
+        health,
         latencyMs: last.latencyMs,
         indicator: last.indicator,
         checkedTs: last.ts,

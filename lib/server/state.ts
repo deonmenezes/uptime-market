@@ -237,6 +237,12 @@ function seedState(): AppState {
     executeTrade(s, bot, marketId, side, "buy", 2_000 + (i % 5) * 3_000, now - (14 - i) * 40_000);
   }
 
+  // AWS runs deep protection supply: reinsurers write a lot of NO on us-east-1,
+  // so the escrow bar reads like a real book from the first pageview
+  for (let i = 0; i < 4; i++) {
+    executeTrade(s, BOTS[i % BOTS.length], "aws-use1", "NO", "buy", 9_000 + i * 4_000, now - (8 - i) * 25_000);
+  }
+
   pushEvent(s, "system", "Cumulus open: five downtime contracts live. Oracle armed on real feeds + synthetic monitors.");
   return s;
 }
@@ -444,7 +450,7 @@ export function settleMarket(s: AppState, marketId: string, outcome: Side, note:
   pushEvent(
     s,
     "settle",
-    `SETTLED ${outcome}: ${m.question} — ${note}. $${Math.round(paidOut).toLocaleString()} paid out automatically.`,
+    `SETTLED ${outcome}: ${m.question}. ${note}. $${Math.round(paidOut).toLocaleString()} paid out automatically.`,
     marketId
   );
 }

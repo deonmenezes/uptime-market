@@ -53,8 +53,8 @@ export default function OraclePage() {
         )}
       </div>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-fog">
-        Every reading the oracle takes — synthetic monitor pings, public status feeds, the demo
-        simulator — is hashed with its predecessor into an append-only chain:{" "}
+        Every reading the oracle takes (synthetic monitor pings, public status feeds, the demo
+        simulator) is hashed with its predecessor into an append-only chain:{" "}
         <code className="rounded bg-panel2 px-1 py-0.5 font-mono text-[11px]">
           sha256(reading + prev_hash)
         </code>
