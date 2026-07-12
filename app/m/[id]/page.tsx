@@ -152,11 +152,9 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
                 </button>
               </div>
             )}
+            <DemoButton marketId={market.id} compact />
           </div>
         </div>
-
-        {/* the big red button: full demo arc for simulatable markets */}
-        <DemoButton marketId={market.id} />
 
         {/* content grid */}
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">

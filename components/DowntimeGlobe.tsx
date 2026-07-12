@@ -2,7 +2,7 @@
 
 // Live downtime globe: orthographic canvas globe with dot-matrix continents,
 // provider logo chips pinned to their regions, and site status lit by the real
-// oracle monitors — green when the last reading was ok, pulsing red while
+// oracle monitors - green when the last reading was ok, pulsing red while
 // degraded. No WebGL, no deps: 2D canvas + projection math.
 //
 // Land data: world-atlas land-110m rasterized to a 2°×2° grid at build time
@@ -64,7 +64,7 @@ const SITES: Site[] = [
   { name: "Santiago", lat: -33.45, lon: -70.67 },
 ];
 
-// arcs between hubs — the "traffic" layer (resolved by site name)
+// arcs between hubs - the "traffic" layer (resolved by site name)
 const ARC_PAIRS: Array<[string, string]> = [
   ["AWS us-east-1", "Stripe"],
   ["AWS us-east-1", "Cloudflare"],

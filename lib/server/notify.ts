@@ -57,7 +57,23 @@ async function generateScript(question: string, note: string): Promise<string> {
 }
 
 function xmlEscape(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function toTwiml(script: string): string {
+  const sentences = script
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const speech = sentences
+    .map((sentence) => `<Say voice="Polly.Joanna-Neural">${xmlEscape(sentence)}</Say><Pause length="0"/>`)
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="1"/>${speech}</Response>`;
 }
 
 async function placeCall(script: string): Promise<{ ok: boolean; detail: string }> {
@@ -78,7 +94,7 @@ async function placeCall(script: string): Promise<{ ok: boolean; detail: string 
     };
   }
   try {
-    const twiml = `<Response><Say voice="Polly.Matthew">${xmlEscape(script)}</Say></Response>`;
+    const twiml = toTwiml(script);
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`, {
       method: "POST",
       signal: AbortSignal.timeout(10_000),
@@ -96,20 +112,19 @@ async function placeCall(script: string): Promise<{ ok: boolean; detail: string 
   }
 }
 
-// Fire-and-forget: never blocks or breaks settlement.
-export function fireDowntimeVoiceAlert(s: AppState, question: string, note: string): void {
-  void (async () => {
-    try {
-      const script = await generateScript(question, note);
-      pushEvent(s, "incident", `AI voice alert drafted: "${script.slice(0, 110)}${script.length > 110 ? "…" : ""}"`);
-      const call = await placeCall(script);
-      pushEvent(
-        s,
-        "incident",
-        call.ok ? `voice call dispatched via Twilio (${call.detail})` : `voice call skipped: ${call.detail}`
-      );
-    } catch {
-      // alerting must never take down settlement
-    }
-  })();
+// This is awaited by the request path. Vercel can stop unawaited work after a
+// response is sent, which otherwise drops outbound calls without an error.
+export async function fireDowntimeVoiceAlert(s: AppState, question: string, note: string): Promise<void> {
+  try {
+    const script = await generateScript(question, note);
+    pushEvent(s, "incident", `AI voice alert drafted: "${script.slice(0, 110)}${script.length > 110 ? "..." : ""}"`);
+    const call = await placeCall(script);
+    pushEvent(
+      s,
+      "incident",
+      call.ok ? `voice call dispatched via Twilio (${call.detail})` : `voice call skipped: ${call.detail}`
+    );
+  } catch {
+    // Alerting must never take down settlement.
+  }
 }

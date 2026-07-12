@@ -28,7 +28,7 @@ export const CONFIG = {
   // stripe cumulative downtime trigger (readings at ~15s cadence; 120 ≈ 30 min)
   stripeDownReadings: 120,
   // a monitor failure only counts toward settlement after this many consecutive
-  // failing readings — one egress blip from our own runtime is not an outage
+  // failing readings - one egress blip from our own runtime is not an outage
   monitorConfirmFails: 2,
   // demo simulation: failing sim readings (2s cadence) before the contract
   // settles YES. Time-compressed so the full arc fits a stage demo.
@@ -453,7 +453,7 @@ export function settleMarket(s: AppState, marketId: string, outcome: Side, note:
     if (!pos) continue;
     const winning = outcome === "YES" ? pos.yes : pos.no;
     if (winning > 0) {
-      u.balanceUsd += winning; // $1 per winning share, instantly — no claims process
+      u.balanceUsd += winning; // $1 per winning share, instantly - no claims process
       paidOut += winning;
       u.payouts.unshift({
         marketId,

@@ -1,7 +1,7 @@
 // The oracle: real signal collection + settlement evaluation + the demo simulator.
 // Two cadences: a 2s sim tick (demo service, bots, price history) and a 15s real
 // tick (synthetic monitors + public status feeds). Every reading is hashed into
-// an append-only chain (see appendReading) — tamper-evident settlement history.
+// an append-only chain (see appendReading) - tamper-evident settlement history.
 
 import { AppState, CONFIG, SIM_OUTAGE_MARKETS, appendReading, executeTrade, getState, pushEvent, settleMarket } from "./state";
 import { collectSignals } from "./feeds";
@@ -34,7 +34,7 @@ export function injectSimulatedOutage(service: string): { ok: boolean; error?: s
   return { ok: true };
 }
 
-function simOutageTick(s: AppState, ts: number) {
+async function simOutageTick(s: AppState, ts: number) {
   for (const [service, sim] of s.simOutages) {
     if (sim.ticksLeft <= 0) continue;
     sim.ticksLeft -= 1;
@@ -60,7 +60,7 @@ function simOutageTick(s: AppState, ts: number) {
     if (m?.status === "open" && sim.down >= CONFIG.simOutageBreachTicks) {
       const note = `oracle logged ${sim.down} consecutive failing readings on ${service} (simulated outage, time-compressed demo)`;
       settleMarket(s, m.id, "YES", note);
-      fireDowntimeVoiceAlert(s, m.question, note);
+      await fireDowntimeVoiceAlert(s, m.question, note);
       // recovery: stop the simulation and let the monitor read green again
       sim.ticksLeft = 0;
       s.consecFails.set(service, 0);
@@ -69,7 +69,7 @@ function simOutageTick(s: AppState, ts: number) {
   }
 }
 
-function simTick(s: AppState, ts = Date.now()) {
+async function simTick(s: AppState, ts = Date.now()) {
   const incident = s.simIncidentTicks > 0;
   if (incident) s.simIncidentTicks -= 1;
   const errorRate = incident ? 12 + Math.random() * 20 : Math.max(0.05, 0.4 + (Math.random() - 0.5) * 0.3);
@@ -94,12 +94,9 @@ function simTick(s: AppState, ts = Date.now()) {
 
   const demo = s.markets.get("demo-checkout");
   if (demo?.status === "open" && s.simConsecutiveDown >= CONFIG.simBreachTicks) {
-    settleMarket(
-      s,
-      "demo-checkout",
-      "YES",
-      `oracle observed ${s.simConsecutiveDown} consecutive failing readings (threshold ${CONFIG.simBreachTicks})`
-    );
+    const note = `oracle observed ${s.simConsecutiveDown} consecutive failing readings (threshold ${CONFIG.simBreachTicks})`;
+    settleMarket(s, "demo-checkout", "YES", note);
+    await fireDowntimeVoiceAlert(s, demo.question, note);
   }
 }
 
@@ -126,7 +123,7 @@ async function realTick(s: AppState) {
       s.upReadings.set(sig.service, (s.upReadings.get(sig.service) ?? 0) + 1);
     } else {
       // Debounce: a lone failing reading (already retried once inside the
-      // monitor) counts as neither up nor down — it's as likely our own
+      // monitor) counts as neither up nor down - it's as likely our own
       // egress as a real outage. Once the streak reaches the confirmation
       // threshold, credit the full streak so cumulative-downtime accounting
       // stays accurate for real outages, which persist across ticks.
@@ -144,10 +141,10 @@ async function realTick(s: AppState) {
       }
     }
   }
-  evaluateRealSettlements(s);
+  await evaluateRealSettlements(s);
 }
 
-function evaluateRealSettlements(s: AppState) {
+async function evaluateRealSettlements(s: AppState) {
   // AWS us-east-1: any active health event touching the region
   const aws = s.markets.get("aws-use1");
   const awsLast = s.lastByService.get("aws-us-east-1");
@@ -182,7 +179,7 @@ function evaluateRealSettlements(s: AppState) {
   if (nflx?.status === "open" && nflxDown >= CONFIG.stripeDownReadings) {
     const note = `synthetic monitor logged ${nflxDown} failed checks (≈${Math.round((nflxDown * CONFIG.realTickMs) / 60000)} min of downtime)`;
     settleMarket(s, "netflix-30m", "YES", note);
-    fireDowntimeVoiceAlert(s, nflx.question, note);
+    await fireDowntimeVoiceAlert(s, nflx.question, note);
   }
 
   // Claude API: cumulative failed monitor checks past 30 minutes
@@ -191,7 +188,7 @@ function evaluateRealSettlements(s: AppState) {
   if (cld?.status === "open" && cldDown >= CONFIG.stripeDownReadings) {
     const note = `synthetic monitor logged ${cldDown} failed checks against api.anthropic.com (≈${Math.round((cldDown * CONFIG.realTickMs) / 60000)} min of downtime)`;
     settleMarket(s, "anthropic-30m", "YES", note);
-    fireDowntimeVoiceAlert(s, cld.question, note);
+    await fireDowntimeVoiceAlert(s, cld.question, note);
   }
 
   // Valorant: cumulative failed checks against the Riot auth edge
@@ -238,10 +235,10 @@ function botStep(s: AppState, ts = Date.now()) {
 
 // ts matters: serverless catch-up replays missed ticks with backdated,
 // evenly spaced timestamps so chart history stays continuous between requests
-function tickSimTracked(ts = Date.now()) {
+async function tickSimTracked(ts = Date.now()) {
   const s = getState();
-  simTick(s, ts);
-  simOutageTick(s, ts);
+  await simTick(s, ts);
+  await simOutageTick(s, ts);
   botStep(s, ts);
   // append a history point so charts move between trades
   for (const m of s.markets.values()) {
@@ -272,7 +269,7 @@ const g = globalThis as unknown as {
 export async function ensureOracle() {
   const s = getState();
   if (!g.__cumulusSimTimer) {
-    g.__cumulusSimTimer = setInterval(tickSimTracked, CONFIG.simTickMs);
+    g.__cumulusSimTimer = setInterval(() => void tickSimTracked(), CONFIG.simTickMs);
     g.__cumulusRealTimer = setInterval(() => void tickRealTracked(), CONFIG.realTickMs);
     g.__cumulusLastSim = Date.now();
     pushEvent(s, "system", "oracle online: monitors every 15s, simulator every 2s, every reading sha256-chained");
@@ -285,7 +282,7 @@ export async function ensureOracle() {
   const simGap = Date.now() - base;
   const missedSim = Math.min(120, Math.floor(simGap / CONFIG.simTickMs));
   const step = simGap / Math.max(1, missedSim);
-  for (let i = 1; i <= missedSim; i++) tickSimTracked(Math.round(base + i * step));
+  for (let i = 1; i <= missedSim; i++) await tickSimTracked(Math.round(base + i * step));
   const realGap = Date.now() - (g.__cumulusLastReal ?? 0);
   if (realGap > CONFIG.realTickMs) await tickRealTracked();
 }

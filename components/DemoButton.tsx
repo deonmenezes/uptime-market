@@ -12,7 +12,7 @@ const SIMULATABLE: Record<string, string> = {
   "anthropic-30m": "anthropic-api",
 };
 
-export default function DemoButton({ marketId }: { marketId: string }) {
+export default function DemoButton({ marketId, compact = false }: { marketId: string; compact?: boolean }) {
   const { snap, injectIncident } = useMarketStore();
   const [firing, setFiring] = useState(false);
 
@@ -35,6 +35,34 @@ export default function DemoButton({ marketId }: { marketId: string }) {
       setFiring(false);
     }
   };
+
+  if (compact) {
+    return (
+      <button
+        onClick={fire}
+        disabled={firing || running || settled}
+        className={[
+          "mt-1.5 w-full rounded-md border py-1.5 px-3 font-mono text-[10px] font-bold uppercase tracking-[0.15em] transition-colors",
+          settled
+            ? "border-gold/50 bg-gold/10 text-gold"
+            : running
+              ? "animate-pulse border-down bg-down text-white"
+              : "border-down/50 bg-down/10 text-down hover:bg-down hover:text-white",
+        ].join(" ")}
+        title="globe goes red, contract settles YES, holders paid, your phone rings"
+      >
+        {settled
+          ? "settled · paid · call sent"
+          : running
+            ? health === "confirming"
+              ? "confirming…"
+              : "down · settling…"
+            : firing
+              ? "injecting…"
+              : "⚡ simulate downtime"}
+      </button>
+    );
+  }
 
   const label = settled
     ? `SETTLED YES · HOLDERS PAID · CALL DISPATCHED`

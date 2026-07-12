@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import DowntimeGlobe from "./DowntimeGlobe";
 
-// slide 0 is the live globe — real oracle telemetry, not artwork
+// slide 0 is the live globe - real oracle telemetry, not artwork
 const SLIDES: Array<{ src?: string; caption: string }> = [
   { caption: "Live oracle telemetry, mapped to the regions it watches" },
   { src: "/art/slides/slide-1.png", caption: "Live probability, priced by the people on call" },

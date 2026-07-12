@@ -89,7 +89,7 @@ export async function monitorNetflix(): Promise<RawSignal> {
 }
 
 export async function monitorRiot(): Promise<RawSignal> {
-  // Riot auth edge fronts login for Valorant/LoL — any HTTP answer proves it's up
+  // Riot auth edge fronts login for Valorant/LoL - any HTTP answer proves it's up
   const { res, ms } = await monitorFetch("https://auth.riotgames.com/");
   const ok = res !== null && res.status < 500;
   return {

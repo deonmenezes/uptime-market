@@ -9,7 +9,7 @@ import { fmtPct, fmtUsdFull } from "@/lib/format";
 const COVERAGE_PRESETS = [10_000, 25_000, 50_000, 100_000];
 const FEE_PCT = 0.01;
 
-// The insurance costume. Coverage in, premium out. No shares, no jargon —
+// The insurance costume. Coverage in, premium out. No shares, no jargon -
 // under the hood it is exactly a YES purchase on the same LMSR book.
 export default function HedgePanel({ market }: { market: MarketView }) {
   const { snap, hedge } = useMarketStore();

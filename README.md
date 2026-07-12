@@ -1,11 +1,11 @@
-# Cumulus — Tradeable Downtime Protection
+# Cumulus - Tradeable Downtime Protection
 
 **SLA credits are toy insurance. Cumulus is an open market where any company can buy real
 downtime protection, anyone can sell it, and settlement is a machine reading cloud telemetry.**
 
 A parametric insurance policy is a prediction market contract with one buyer and one seller.
 Cumulus chops it into $1 shares: the **hedger view** sells it as coverage and premium, the
-**trader view** shows the same contract as a probability. One toggle switches costumes — that
+**trader view** shows the same contract as a probability. One toggle switches costumes - that
 toggle is the pitch.
 
 Live at **https://culumus.vercel.app** · repo: deonmenezes/uptime-market
@@ -18,14 +18,14 @@ npm install && npm run dev
 
 ## The demo (PRD §4)
 
-1. The reliability index strip shows "AWS us-east-1 major outage in July" at ~12% — a number
+1. The reliability index strip shows "AWS us-east-1 major outage in July" at ~12% - a number
    that doesn't exist anywhere else.
 2. Hedger view: buy $50,000 of protection for a quoted premium. Plain English, no jargon.
 3. Toggle to trader view: the purchase is YES shares; the probability just ticked up.
 4. Demo console: inject an outage on the simulated checkout-service → the oracle logs 8
    failing readings → the contract settles YES and protection holders are **paid instantly,
    no claim filed**.
-5. `/oracle` shows every reading sha256-chained to its predecessor — tamper-evident history.
+5. `/oracle` shows every reading sha256-chained to its predecessor - tamper-evident history.
 
 ## What's real
 
@@ -98,12 +98,12 @@ Cumulus is agent-native: any AI agent can discover the API, connect over MCP, an
 
 ## Architecture
 
-- `lib/market/lmsr.ts` — LMSR math shared by server execution and client previews
-- `lib/server/state.ts` — all state, in-memory on `globalThis` (fresh per restart, by design)
-- `lib/server/feeds.ts` — the real-world signal layer: synthetic monitors + status feeds
-- `lib/server/oracle.ts` — reading chain, settlement evaluation, demo simulator, LP bots;
+- `lib/market/lmsr.ts` - LMSR math shared by server execution and client previews
+- `lib/server/state.ts` - all state, in-memory on `globalThis` (fresh per restart, by design)
+- `lib/server/feeds.ts` - the real-world signal layer: synthetic monitors + status feeds
+- `lib/server/oracle.ts` - reading chain, settlement evaluation, demo simulator, LP bots;
   serverless-safe (interval + catch-up ticks)
-- `app/api/*` — state, trade, hedge, deposit, admin, oracle/log, market history
+- `app/api/*` - state, trade, hedge, deposit, admin, oracle/log, market history
 - Hedger/trader views: `components/HedgePanel.tsx` vs `components/TradePanel.tsx`, toggled
   globally from the header
 - Artwork: codex-generated renders in `public/art/` (Pillow compositor, no stock assets);
@@ -111,6 +111,6 @@ Cumulus is agent-native: any AI agent can discover the API, connect over MCP, an
 
 ## Known gaps (per PRD §10)
 
-Correlation (one outage triggers everything — mitigated by full collateral), regulation (play
+Correlation (one outage triggers everything - mitigated by full collateral), regulation (play
 money; production needs a CFTC wrapper or licensed carrier), basis risk (region-wide index vs
 your specific stack).

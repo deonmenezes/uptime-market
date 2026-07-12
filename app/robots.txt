@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+Disallow: /api/admin/
+
+User-agent: GPTBot
+Allow: /
+Disallow: /api/admin/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/admin/
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /api/admin/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /api/admin/
+
+Content-Signal: ai-train=no, search=yes, ai-input=yes
+Sitemap: https://culumus.vercel.app/sitemap.xml

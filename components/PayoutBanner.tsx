@@ -1,7 +1,7 @@
 "use client";
 
 // The demo money-shot: the instant a contract you hold settles in your favor,
-// this banner drops in with the payout — no claim filed, no adjuster, no wait.
+// this banner drops in with the payout - no claim filed, no adjuster, no wait.
 // Watches snap.user.payouts (recorded server-side at settlement) and fires for
 // any payout newer than the last one this browser has seen.
 

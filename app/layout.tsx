@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import PayoutBanner from "@/components/PayoutBanner";
 import { StoreProvider } from "@/components/StoreContext";
+import WebMcp from "@/components/WebMcp";
 
 const sora = Sora({ weight: ["400", "600", "700"], subsets: ["latin"], variable: "--font-sora" });
 const plexSans = IBM_Plex_Sans({ weight: ["400", "500", "600"], subsets: ["latin"], variable: "--font-plex-sans" });
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sora.variable} ${plexSans.variable} ${plexMono.variable}`}>
       <body className="antialiased">
+        <WebMcp />
         <StoreProvider>
           <Header />
           <PayoutBanner />
