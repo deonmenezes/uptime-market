@@ -103,6 +103,20 @@ export async function monitorRiot(): Promise<RawSignal> {
   };
 }
 
+export async function monitorAnthropic(): Promise<RawSignal> {
+  const { res, ms } = await monitorFetch("https://api.anthropic.com/v1/models");
+  const ok = res !== null && res.status < 500;
+  return {
+    service: "anthropic-api",
+    source: "monitor:anthropic",
+    ok,
+    known: true,
+    latencyMs: res ? ms : null,
+    indicator: res ? `http ${res.status}` : "timeout",
+    summary: res ? `api.anthropic.com answered ${res.status} in ${ms}ms` : "api.anthropic.com unreachable",
+  };
+}
+
 // ---- public status feeds (statuspage.io JSON + AWS health events)
 
 export async function feedEpic(): Promise<RawSignal> {
@@ -208,6 +222,7 @@ export async function collectSignals(): Promise<RawSignal[]> {
     monitorOpenAI(),
     monitorNetflix(),
     monitorRiot(),
+    monitorAnthropic(),
     feedCloudflare(),
     feedAws(),
     feedEpic(),

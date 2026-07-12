@@ -3,7 +3,7 @@
 // tick (synthetic monitors + public status feeds). Every reading is hashed into
 // an append-only chain (see appendReading) — tamper-evident settlement history.
 
-import { AppState, CONFIG, appendReading, executeTrade, getState, pushEvent, settleMarket } from "./state";
+import { AppState, CONFIG, SIM_OUTAGE_MARKETS, appendReading, executeTrade, getState, pushEvent, settleMarket } from "./state";
 import { collectSignals } from "./feeds";
 import { fireDowntimeVoiceAlert } from "./notify";
 import { priceYes } from "@/lib/market/lmsr";
@@ -17,51 +17,55 @@ export function injectIncident(): { ok: boolean } {
   return { ok: true };
 }
 
-// The Netflix demo arc: simulated failing readings on the netflix-cdn monitor,
-// time-compressed (2s cadence, settles after netflixSimBreachTicks) so the
-// full story fits a stage demo: globe turns yellow then red, LPs reprice, the
-// contract settles YES, holders are paid, and Twilio places the AI voice call.
-export function injectNetflixOutage(): { ok: boolean; error?: string } {
+// The full demo arc, per simulatable service (Netflix, Claude): simulated
+// failing readings on that monitor, time-compressed (2s cadence, settles
+// after simOutageBreachTicks) so the whole story fits a stage demo: globe
+// turns yellow then red, LPs reprice, the contract settles YES, holders are
+// paid, and Twilio places the AI voice call.
+export function injectSimulatedOutage(service: string): { ok: boolean; error?: string } {
   const s = getState();
-  const m = s.markets.get("netflix-30m");
-  if (!m || m.status !== "open") return { ok: false, error: "netflix market is not open" };
-  if (s.simNetflixTicks > 0) return { ok: false, error: "netflix simulation already running" };
-  s.simNetflixTicks = CONFIG.netflixSimBreachTicks + 4;
-  s.simNetflixDown = 0;
-  pushEvent(s, "incident", "SEV-1 injected on netflix-cdn: simulated outage, time-compressed for demo");
+  const marketId = SIM_OUTAGE_MARKETS[service];
+  if (!marketId) return { ok: false, error: `no simulation available for ${service}` };
+  const m = s.markets.get(marketId);
+  if (!m || m.status !== "open") return { ok: false, error: `${m?.ticker ?? marketId} is not open` };
+  if ((s.simOutages.get(service)?.ticksLeft ?? 0) > 0) return { ok: false, error: "simulation already running" };
+  s.simOutages.set(service, { ticksLeft: CONFIG.simOutageBreachTicks + 4, down: 0 });
+  pushEvent(s, "incident", `SEV-1 injected on ${service}: simulated outage, time-compressed for demo`);
   return { ok: true };
 }
 
-function simNetflixTick(s: AppState, ts: number) {
-  if (s.simNetflixTicks <= 0) return;
-  s.simNetflixTicks -= 1;
-  s.simNetflixDown += 1;
+function simOutageTick(s: AppState, ts: number) {
+  for (const [service, sim] of s.simOutages) {
+    if (sim.ticksLeft <= 0) continue;
+    sim.ticksLeft -= 1;
+    sim.down += 1;
 
-  appendReading(s, {
-    ts,
-    source: "sim:netflix-cdn",
-    service: "netflix-cdn",
-    ok: false,
-    latencyMs: null,
-    indicator: "simulated-outage",
-    summary: `netflix.com unreachable [simulated outage, reading ${s.simNetflixDown}/${CONFIG.netflixSimBreachTicks}]`,
-  });
-  // drive the same tri-state the real monitors use: confirming, then down
-  const fails = (s.consecFails.get("netflix-cdn") ?? 0) + 1;
-  s.consecFails.set("netflix-cdn", fails);
-  if (fails === CONFIG.monitorConfirmFails) {
-    pushEvent(s, "incident", "oracle: degradation confirmed on netflix-cdn (simulated outage)");
-  }
+    appendReading(s, {
+      ts,
+      source: `sim:${service}`,
+      service,
+      ok: false,
+      latencyMs: null,
+      indicator: "simulated-outage",
+      summary: `${service} unreachable [simulated outage, reading ${sim.down}/${CONFIG.simOutageBreachTicks}]`,
+    });
+    // drive the same tri-state the real monitors use: confirming, then down
+    const fails = (s.consecFails.get(service) ?? 0) + 1;
+    s.consecFails.set(service, fails);
+    if (fails === CONFIG.monitorConfirmFails) {
+      pushEvent(s, "incident", `oracle: degradation confirmed on ${service} (simulated outage)`);
+    }
 
-  const m = s.markets.get("netflix-30m");
-  if (m?.status === "open" && s.simNetflixDown >= CONFIG.netflixSimBreachTicks) {
-    const note = `oracle logged ${s.simNetflixDown} consecutive failing readings on netflix-cdn (simulated outage, time-compressed demo)`;
-    settleMarket(s, "netflix-30m", "YES", note);
-    fireDowntimeVoiceAlert(s, m.question, note);
-    // recovery: stop the simulation and let the monitor read green again
-    s.simNetflixTicks = 0;
-    s.consecFails.set("netflix-cdn", 0);
-    pushEvent(s, "incident", "netflix-cdn recovered; simulated outage resolved");
+    const m = s.markets.get(SIM_OUTAGE_MARKETS[service]);
+    if (m?.status === "open" && sim.down >= CONFIG.simOutageBreachTicks) {
+      const note = `oracle logged ${sim.down} consecutive failing readings on ${service} (simulated outage, time-compressed demo)`;
+      settleMarket(s, m.id, "YES", note);
+      fireDowntimeVoiceAlert(s, m.question, note);
+      // recovery: stop the simulation and let the monitor read green again
+      sim.ticksLeft = 0;
+      s.consecFails.set(service, 0);
+      pushEvent(s, "incident", `${service} recovered; simulated outage resolved`);
+    }
   }
 }
 
@@ -104,9 +108,9 @@ function simTick(s: AppState, ts = Date.now()) {
 async function realTick(s: AppState) {
   const signals = await collectSignals();
   for (const sig of signals) {
-    // while the netflix demo simulation runs, the sim owns that service's
-    // readings; the real (green) monitor would fight the story mid-demo
-    if (sig.service === "netflix-cdn" && s.simNetflixTicks > 0) continue;
+    // while a demo simulation runs, the sim owns that service's readings;
+    // the real (green) monitor would fight the story mid-demo
+    if ((s.simOutages.get(sig.service)?.ticksLeft ?? 0) > 0) continue;
     appendReading(s, {
       ts: Date.now(),
       source: sig.source,
@@ -181,6 +185,15 @@ function evaluateRealSettlements(s: AppState) {
     fireDowntimeVoiceAlert(s, nflx.question, note);
   }
 
+  // Claude API: cumulative failed monitor checks past 30 minutes
+  const cld = s.markets.get("anthropic-30m");
+  const cldDown = s.downReadings.get("anthropic-api") ?? 0;
+  if (cld?.status === "open" && cldDown >= CONFIG.stripeDownReadings) {
+    const note = `synthetic monitor logged ${cldDown} failed checks against api.anthropic.com (≈${Math.round((cldDown * CONFIG.realTickMs) / 60000)} min of downtime)`;
+    settleMarket(s, "anthropic-30m", "YES", note);
+    fireDowntimeVoiceAlert(s, cld.question, note);
+  }
+
   // Valorant: cumulative failed checks against the Riot auth edge
   const val = s.markets.get("riot-valorant");
   const valDown = s.downReadings.get("riot-valorant") ?? 0;
@@ -228,7 +241,7 @@ function botStep(s: AppState, ts = Date.now()) {
 function tickSimTracked(ts = Date.now()) {
   const s = getState();
   simTick(s, ts);
-  simNetflixTick(s, ts);
+  simOutageTick(s, ts);
   botStep(s, ts);
   // append a history point so charts move between trades
   for (const m of s.markets.values()) {

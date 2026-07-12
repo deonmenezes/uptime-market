@@ -108,20 +108,26 @@ export default function MarketCard({
           <Sparkline data={market.spark} />
         </div>
 
-        {/* one-tap side selection */}
+        {/* one-tap side selection; winning shares pay $1, so cheap sides pay big */}
         {!settled && (
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               onClick={(e) => goTrade(e, "YES")}
-              className="rounded-md border border-up/40 bg-up/10 py-2 font-mono text-[11px] font-bold text-updim transition-colors hover:bg-up hover:text-white"
+              className="rounded-md border border-up/40 bg-up/10 py-1.5 font-mono text-[11px] font-bold text-updim transition-colors hover:bg-up hover:text-white"
             >
               YES {Math.round(market.price * 100)}¢
+              <span className="block text-[9px] font-medium opacity-80">
+                pays {(1 / Math.max(0.01, market.price)).toFixed(1)}x
+              </span>
             </button>
             <button
               onClick={(e) => goTrade(e, "NO")}
-              className="rounded-md border border-down/40 bg-down/10 py-2 font-mono text-[11px] font-bold text-down transition-colors hover:bg-down hover:text-white"
+              className="rounded-md border border-down/40 bg-down/10 py-1.5 font-mono text-[11px] font-bold text-down transition-colors hover:bg-down hover:text-white"
             >
               NO {Math.round((1 - market.price) * 100)}¢
+              <span className="block text-[9px] font-medium opacity-80">
+                pays {(1 / Math.max(0.01, 1 - market.price)).toFixed(1)}x
+              </span>
             </button>
           </div>
         )}

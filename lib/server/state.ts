@@ -30,10 +30,17 @@ export const CONFIG = {
   // a monitor failure only counts toward settlement after this many consecutive
   // failing readings — one egress blip from our own runtime is not an outage
   monitorConfirmFails: 2,
-  // netflix demo simulation: failing sim readings (2s cadence) before the
-  // contract settles YES. Time-compressed so the full arc fits a stage demo.
-  netflixSimBreachTicks: 12,
+  // demo simulation: failing sim readings (2s cadence) before the contract
+  // settles YES. Time-compressed so the full arc fits a stage demo.
+  simOutageBreachTicks: 12,
 } as const;
+
+// services with a one-button, full-arc outage simulation (globe alert →
+// repricing → settlement → payout → voice call), mapped to their market
+export const SIM_OUTAGE_MARKETS: Record<string, string> = {
+  "netflix-cdn": "netflix-30m",
+  "anthropic-api": "anthropic-30m",
+};
 
 export interface AppState {
   users: Map<string, UserAccount>;
@@ -46,8 +53,7 @@ export interface AppState {
   consecFails: Map<string, number>; // per service, current consecutive failing readings
   simIncidentTicks: number; // remaining ticks of the injected demo incident
   simConsecutiveDown: number;
-  simNetflixTicks: number; // remaining ticks of the simulated netflix outage
-  simNetflixDown: number; // failing simulated netflix readings so far
+  simOutages: Map<string, { ticksLeft: number; down: number }>; // active simulated outages by service
   trades: TradeRecord[];
   events: FeedEvent[];
   seq: number;
@@ -145,6 +151,19 @@ const SEEDS: Array<{
     closesLabel: "SUN 23:59",
   },
   {
+    id: "anthropic-30m",
+    ticker: "CLD30",
+    question: "Claude API down more than 30 minutes this week",
+    service: "anthropic-api",
+    source: "anthropic-monitor",
+    sourceName: "Cumulus synthetic monitor",
+    sourceUrl: "https://status.anthropic.com",
+    trigger: "Cumulus pings api.anthropic.com every 15s. Settles YES when cumulative failed checks exceed 30 minutes in the week. Settles NO at week close.",
+    settlement: "auto",
+    p0: 0.06,
+    closesLabel: "SUN 23:59",
+  },
+  {
     id: "riot-valorant",
     ticker: "VALRNT",
     question: "Valorant login down more than 30 minutes this week",
@@ -199,8 +218,7 @@ function seedState(): AppState {
     consecFails: new Map(),
     simIncidentTicks: 0,
     simConsecutiveDown: 0,
-    simNetflixTicks: 0,
-    simNetflixDown: 0,
+    simOutages: new Map(),
     trades: [],
     events: [],
     seq: 0,

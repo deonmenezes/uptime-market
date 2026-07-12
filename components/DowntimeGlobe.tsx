@@ -44,7 +44,8 @@ const SITES: Site[] = [
   { name: "Cloudflare · São Paulo", lat: -23.55, lon: -46.63, service: "cloudflare-net" },
   { name: "Cloudflare · Mumbai", lat: 19.07, lon: 72.88, service: "cloudflare-net" },
   { name: "Cloudflare · Johannesburg", lat: -26.2, lon: 28.05, service: "cloudflare-net" },
-  // games + streaming
+  // ai + games + streaming
+  { name: "Claude / Anthropic", lat: 37.79, lon: -122.4, service: "anthropic-api", logo: "/logos/claude.svg", flip: true },
   { name: "Fortnite / Epic", lat: 35.79, lon: -78.78, service: "epic-fortnite", logo: "/logos/epicgames.svg", flip: true },
   { name: "Netflix OC · Amsterdam", lat: 52.37, lon: 4.9, service: "netflix-cdn", logo: "/logos/netflix.svg", flip: true },
   { name: "Valorant / Riot", lat: 34.02, lon: -118.45, service: "riot-valorant", logo: "/logos/valorant.svg", flip: true },
@@ -77,6 +78,7 @@ const ARC_PAIRS: Array<[string, string]> = [
   ["Netflix OC · Amsterdam", "AWS us-east-1"],
   ["Valorant / Riot", "Cloudflare · Tokyo"],
   ["Supercell · Helsinki", "Cloudflare"],
+  ["Claude / Anthropic", "AWS us-east-1"],
 ];
 
 const DEG = Math.PI / 180;

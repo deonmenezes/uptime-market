@@ -13,6 +13,7 @@ export const SOURCES: Record<string, SourceInfo> = {
   "openai-api": { provider: "OpenAI", logo: "/logos/openai.svg", dark: true },
   "epic-fortnite": { provider: "Epic Games", logo: "/logos/epicgames.svg", dark: true },
   "netflix-cdn": { provider: "Netflix", logo: "/logos/netflix.svg" },
+  "anthropic-api": { provider: "Anthropic", logo: "/logos/claude.svg" },
   "riot-valorant": { provider: "Riot Games", logo: "/logos/valorant.svg" },
   "checkout-service": { provider: "Simulated", logo: "/logos/grafana.svg" },
 };

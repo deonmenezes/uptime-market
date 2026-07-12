@@ -131,6 +131,9 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
                   ].join(" ")}
                 >
                   YES {Math.round(market.price * 100)}¢
+                  <span className="block text-[9px] font-medium opacity-80">
+                    pays {(1 / Math.max(0.01, market.price)).toFixed(1)}x
+                  </span>
                 </button>
                 <button
                   onClick={() => pickSide("NO")}
@@ -142,6 +145,9 @@ export default function MarketPage({ params }: { params: Promise<{ id: string }>
                   ].join(" ")}
                 >
                   NO {Math.round((1 - market.price) * 100)}¢
+                  <span className="block text-[9px] font-medium opacity-80">
+                    pays {(1 / Math.max(0.01, 1 - market.price)).toFixed(1)}x
+                  </span>
                 </button>
               </div>
             )}

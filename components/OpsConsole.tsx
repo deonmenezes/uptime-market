@@ -7,29 +7,19 @@ import { useMarketStore } from "./StoreContext";
 // The four real contracts settle from live feeds and cannot be faked from here.
 export default function OpsConsole() {
   const { snap, injectIncident, settle } = useMarketStore();
-  const [busy, setBusy] = useState(false);
-  const [busyNflx, setBusyNflx] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
 
   const demo = snap?.markets.find((m) => m.id === "demo-checkout");
   const demoOpen = demo?.status === "open";
-  const nflx = snap?.markets.find((m) => m.id === "netflix-30m");
-  const nflxOpen = nflx?.status === "open";
+  const nflxOpen = snap?.markets.find((m) => m.id === "netflix-30m")?.status === "open";
+  const cldOpen = snap?.markets.find((m) => m.id === "anthropic-30m")?.status === "open";
 
-  const fire = async () => {
-    setBusy(true);
+  const fire = async (service?: string) => {
+    setBusy(service ?? "checkout");
     try {
-      await injectIncident();
+      await injectIncident(service);
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const fireNetflix = async () => {
-    setBusyNflx(true);
-    try {
-      await injectIncident("netflix-cdn");
-    } finally {
-      setBusyNflx(false);
+      setBusy(null);
     }
   };
 
@@ -50,26 +40,35 @@ export default function OpsConsole() {
         </p>
 
         <button
-          onClick={fire}
-          disabled={busy || !demoOpen}
+          onClick={() => fire()}
+          disabled={busy !== null || !demoOpen}
           className="flex w-full items-center justify-between rounded-md border border-edge bg-ink px-3 py-2.5 font-mono text-[11px] text-bone transition-colors hover:border-down hover:text-down disabled:opacity-40"
         >
           <span>inject outage · checkout-service</span>
-          <span className="text-down">{busy ? "firing…" : demoOpen ? "▲" : "settled"}</span>
+          <span className="text-down">{busy === "checkout" ? "firing…" : demoOpen ? "▲" : "settled"}</span>
         </button>
 
         <button
-          onClick={fireNetflix}
-          disabled={busyNflx || !nflxOpen}
+          onClick={() => fire("netflix-cdn")}
+          disabled={busy !== null || !nflxOpen}
           className="flex w-full items-center justify-between rounded-md border border-edge bg-ink px-3 py-2.5 font-mono text-[11px] text-bone transition-colors hover:border-down hover:text-down disabled:opacity-40"
         >
           <span>simulate outage · netflix (full arc + voice call)</span>
-          <span className="text-down">{busyNflx ? "firing…" : nflxOpen ? "▲" : "settled"}</span>
+          <span className="text-down">{busy === "netflix-cdn" ? "firing…" : nflxOpen ? "▲" : "settled"}</span>
+        </button>
+
+        <button
+          onClick={() => fire("anthropic-api")}
+          disabled={busy !== null || !cldOpen}
+          className="flex w-full items-center justify-between rounded-md border border-edge bg-ink px-3 py-2.5 font-mono text-[11px] text-bone transition-colors hover:border-down hover:text-down disabled:opacity-40"
+        >
+          <span>simulate outage · claude api (full arc + voice call)</span>
+          <span className="text-down">{busy === "anthropic-api" ? "firing…" : cldOpen ? "▲" : "settled"}</span>
         </button>
         <p className="font-mono text-[9px] leading-relaxed text-fog/60">
-          netflix arc: globe turns yellow then red → LPs reprice → NFLX30 settles YES in ~25s →
+          full arc: globe turns yellow then red → LPs reprice → the contract settles YES in ~25s →
           holders paid → Twilio places an AI voice call (script by NVIDIA LLM) announcing the
-          outage. time-compressed simulation; the real netflix monitor resumes after settlement.
+          outage. time-compressed simulation; the real monitor resumes after settlement.
         </p>
 
         {demoOpen && (

@@ -1,0 +1,108 @@
+<svg viewBox="0 0 980 620" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#5f6f64"/>
+    </marker>
+    <marker id="arrg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#0c8a4d"/>
+    </marker>
+  </defs>
+
+  <rect width="980" height="620" fill="#fbfcfa"/>
+  <text x="30" y="42" font-size="20" font-weight="bold" fill="#16211b" font-family="ui-sans-serif, system-ui">Cumulus: tradeable downtime protection</text>
+  <text x="30" y="62" font-size="11" fill="#5f6f64">a parametric insurance policy is a prediction market contract. one book, two costumes, machine settlement.</text>
+
+  <!-- LAYER 1: real world -->
+  <rect x="30" y="86" width="920" height="86" rx="10" fill="#ffffff" stroke="#e5eae2"/>
+  <text x="46" y="108" font-size="10" fill="#a87c1f" letter-spacing="2">REAL WORLD · THE THINGS THAT GO DOWN</text>
+  <g font-size="11" fill="#16211b">
+    <rect x="46"  y="120" width="100" height="36" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/><text x="96"  y="142" text-anchor="middle">AWS us-east-1</text>
+    <rect x="156" y="120" width="90"  height="36" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/><text x="201" y="142" text-anchor="middle">Stripe API</text>
+    <rect x="256" y="120" width="90"  height="36" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/><text x="301" y="142" text-anchor="middle">Cloudflare</text>
+    <rect x="356" y="120" width="90"  height="36" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/><text x="401" y="142" text-anchor="middle">OpenAI API</text>
+    <rect x="456" y="120" width="110" height="36" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/><text x="511" y="142" text-anchor="middle">Fortnite / Epic</text>
+    <rect x="576" y="120" width="80"  height="36" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/><text x="616" y="142" text-anchor="middle">Netflix</text>
+    <rect x="666" y="120" width="90"  height="36" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/><text x="711" y="142" text-anchor="middle">Valorant</text>
+    <rect x="766" y="120" width="168" height="36" rx="6" fill="#fff8ec" stroke="#a87c1f"/><text x="850" y="138" text-anchor="middle" fill="#a87c1f">checkout-service (sim)</text>
+    <text x="850" y="150" text-anchor="middle" font-size="8" fill="#a87c1f">the stage safety net</text>
+  </g>
+
+  <line x1="490" y1="172" x2="490" y2="200" stroke="#5f6f64" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="502" y="192" font-size="9" fill="#5f6f64">every 15s: synthetic pings + public status feeds (lib/server/feeds.ts)</text>
+
+  <!-- LAYER 2: oracle -->
+  <rect x="30" y="204" width="920" height="112" rx="10" fill="#ffffff" stroke="#e5eae2"/>
+  <text x="46" y="226" font-size="10" fill="#a87c1f" letter-spacing="2">THE ORACLE · lib/server/oracle.ts · NO COMMITTEE, A MACHINE</text>
+  <g font-size="10" fill="#16211b">
+    <rect x="46" y="238" width="200" height="62" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/>
+    <text x="146" y="256" text-anchor="middle" font-weight="bold">sha256 reading chain</text>
+    <text x="146" y="270" text-anchor="middle" font-size="9" fill="#5f6f64">hash(reading + prev_hash)</text>
+    <text x="146" y="283" text-anchor="middle" font-size="9" fill="#5f6f64">append-only, served at /oracle</text>
+
+    <rect x="266" y="238" width="210" height="62" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/>
+    <text x="371" y="256" text-anchor="middle" font-weight="bold">debounce (up/confirming/down)</text>
+    <text x="371" y="270" text-anchor="middle" font-size="9" fill="#5f6f64">retry once, then 2 consecutive fails</text>
+    <text x="371" y="283" text-anchor="middle" font-size="9" fill="#5f6f64">one egress blip is not an outage</text>
+
+    <rect x="496" y="238" width="200" height="62" rx="6" fill="#f2f5f0" stroke="#ccd6ca"/>
+    <text x="596" y="256" text-anchor="middle" font-weight="bold">settlement triggers</text>
+    <text x="596" y="270" text-anchor="middle" font-size="9" fill="#5f6f64">status-page breach · 30min cumulative</text>
+    <text x="596" y="283" text-anchor="middle" font-size="9" fill="#5f6f64">weekly SLO · sim breach</text>
+
+    <rect x="716" y="238" width="218" height="62" rx="6" fill="#fdf3f2" stroke="#cf3f38"/>
+    <text x="825" y="256" text-anchor="middle" font-weight="bold" fill="#cf3f38">on confirmed downtime</text>
+    <text x="825" y="270" text-anchor="middle" font-size="9" fill="#5f6f64">Twilio voice call, script written live</text>
+    <text x="825" y="283" text-anchor="middle" font-size="9" fill="#5f6f64">by NVIDIA-hosted LLM (notify.ts)</text>
+  </g>
+
+  <line x1="490" y1="316" x2="490" y2="344" stroke="#5f6f64" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="502" y="336" font-size="9" fill="#5f6f64">settle YES/NO → every winning share pays $1, instantly, no claim filed</text>
+
+  <!-- LAYER 3: market engine -->
+  <rect x="30" y="348" width="920" height="108" rx="10" fill="#ffffff" stroke="#0c8a4d"/>
+  <text x="46" y="370" font-size="10" fill="#0c8a4d" letter-spacing="2">MARKET ENGINE · lib/market/lmsr.ts + lib/server/state.ts</text>
+  <g font-size="10" fill="#16211b">
+    <rect x="46" y="382" width="270" height="60" rx="6" fill="#eef7f1" stroke="#0c8a4d"/>
+    <text x="181" y="400" text-anchor="middle" font-weight="bold">LMSR market maker (b = 250,000)</text>
+    <text x="181" y="414" text-anchor="middle" font-size="9" fill="#5f6f64">always a quote, always a fill, from trade one</text>
+    <text x="181" y="427" text-anchor="middle" font-size="9" fill="#5f6f64">price = P(outage) · YES + NO = 1 · max loss = b·ln2</text>
+
+    <rect x="336" y="382" width="270" height="60" rx="6" fill="#eef7f1" stroke="#0c8a4d"/>
+    <text x="471" y="400" text-anchor="middle" font-weight="bold">one book, two costumes</text>
+    <text x="471" y="414" text-anchor="middle" font-size="9" fill="#5f6f64">hedger: coverage + premium (insurance)</text>
+    <text x="471" y="427" text-anchor="middle" font-size="9" fill="#5f6f64">trader: YES/NO shares at a probability</text>
+
+    <rect x="626" y="382" width="308" height="60" rx="6" fill="#eef7f1" stroke="#0c8a4d"/>
+    <text x="780" y="400" text-anchor="middle" font-weight="bold">full collateral + instant payout</text>
+    <text x="780" y="414" text-anchor="middle" font-size="9" fill="#5f6f64">written protection escrows $1/share</text>
+    <text x="780" y="427" text-anchor="middle" font-size="9" fill="#5f6f64">settlement credits winners in the same tick</text>
+  </g>
+
+  <line x1="200" y1="456" x2="200" y2="484" stroke="#0c8a4d" stroke-width="1.5" marker-end="url(#arrg)"/>
+  <line x1="490" y1="456" x2="490" y2="484" stroke="#0c8a4d" stroke-width="1.5" marker-end="url(#arrg)"/>
+  <line x1="780" y1="456" x2="780" y2="484" stroke="#0c8a4d" stroke-width="1.5" marker-end="url(#arrg)"/>
+
+  <!-- LAYER 4: surfaces -->
+  <g font-size="10" fill="#16211b">
+    <rect x="60"  y="488" width="280" height="100" rx="10" fill="#ffffff" stroke="#e5eae2"/>
+    <text x="200" y="510" text-anchor="middle" font-size="10" fill="#a87c1f" letter-spacing="2">HUMANS · WEB UI</text>
+    <text x="200" y="530" text-anchor="middle" font-size="9" fill="#5f6f64">interactive downtime globe (drag, click a pin to trade)</text>
+    <text x="200" y="544" text-anchor="middle" font-size="9" fill="#5f6f64">hedger/trader toggle · YES/NO one-tap buttons</text>
+    <text x="200" y="558" text-anchor="middle" font-size="9" fill="#5f6f64">payout banner · live tape · leaderboard</text>
+    <text x="200" y="572" text-anchor="middle" font-size="9" fill="#5f6f64">devnet SOL deposits via Phantom</text>
+
+    <rect x="350" y="488" width="280" height="100" rx="10" fill="#ffffff" stroke="#e5eae2"/>
+    <text x="490" y="510" text-anchor="middle" font-size="10" fill="#a87c1f" letter-spacing="2">AGENTS · MCP + API + SKILL</text>
+    <text x="490" y="530" text-anchor="middle" font-size="9" fill="#5f6f64">GET /api/agent: self-onboarding spec</text>
+    <text x="490" y="544" text-anchor="middle" font-size="9" fill="#5f6f64">mcp/cumulus-mcp.mjs: 9 tools, zero deps</text>
+    <text x="490" y="558" text-anchor="middle" font-size="9" fill="#5f6f64">skills/cumulus-trading: mechanics + alpha</text>
+    <text x="490" y="572" text-anchor="middle" font-size="9" fill="#5f6f64">signal: health=confirming, trade before the move</text>
+
+    <rect x="640" y="488" width="280" height="100" rx="10" fill="#ffffff" stroke="#e5eae2"/>
+    <text x="780" y="510" text-anchor="middle" font-size="10" fill="#a87c1f" letter-spacing="2">ALERTS · THE PHONE RINGS</text>
+    <text x="780" y="530" text-anchor="middle" font-size="9" fill="#5f6f64">downtime confirmed → NVIDIA LLM writes the script</text>
+    <text x="780" y="544" text-anchor="middle" font-size="9" fill="#5f6f64">→ Twilio speaks it to ALERT_PHONE_NUMBER</text>
+    <text x="780" y="558" text-anchor="middle" font-size="9" fill="#5f6f64">"outage confirmed, protection paid,</text>
+    <text x="780" y="572" text-anchor="middle" font-size="9" fill="#5f6f64">no claim to file"</text>
+  </g>
+</svg>

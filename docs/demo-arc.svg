@@ -1,0 +1,72 @@
+<svg viewBox="0 0 980 360" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <defs>
+    <marker id="darr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#5f6f64"/>
+    </marker>
+  </defs>
+  <rect width="980" height="360" fill="#fbfcfa"/>
+  <text x="30" y="40" font-size="18" font-weight="bold" fill="#16211b" font-family="ui-sans-serif, system-ui">The Netflix demo arc · one button, ~40 seconds, start to finish</text>
+  <text x="30" y="60" font-size="11" fill="#5f6f64">ops console → "simulate outage · netflix". time-compressed simulation; real markets settle only from real telemetry.</text>
+
+  <!-- timeline spine -->
+  <line x1="60" y1="210" x2="940" y2="210" stroke="#ccd6ca" stroke-width="2"/>
+
+  <!-- steps -->
+  <g font-size="10">
+    <!-- t=0 -->
+    <circle cx="90" cy="210" r="7" fill="#16211b"/>
+    <rect x="40" y="96" width="130" height="76" rx="8" fill="#ffffff" stroke="#e5eae2"/>
+    <text x="105" y="114" text-anchor="middle" font-weight="bold" fill="#16211b">t = 0s · you bet</text>
+    <text x="105" y="130" text-anchor="middle" font-size="9" fill="#5f6f64">click the Netflix pin</text>
+    <text x="105" y="143" text-anchor="middle" font-size="9" fill="#5f6f64">on the globe → NFLX30</text>
+    <text x="105" y="156" text-anchor="middle" font-size="9" fill="#5f6f64">buy YES (or protection)</text>
+    <line x1="105" y1="172" x2="92" y2="200" stroke="#5f6f64" marker-end="url(#darr)"/>
+
+    <!-- inject -->
+    <circle cx="240" cy="210" r="7" fill="#a87c1f"/>
+    <rect x="180" y="236" width="130" height="76" rx="8" fill="#ffffff" stroke="#e5eae2"/>
+    <text x="245" y="254" text-anchor="middle" font-weight="bold" fill="#16211b">inject</text>
+    <text x="245" y="270" text-anchor="middle" font-size="9" fill="#5f6f64">SEV-1 on netflix-cdn</text>
+    <text x="245" y="283" text-anchor="middle" font-size="9" fill="#5f6f64">sim readings start</text>
+    <text x="245" y="296" text-anchor="middle" font-size="9" fill="#5f6f64">failing every 2s</text>
+    <line x1="243" y1="234" x2="241" y2="220" stroke="#5f6f64" marker-end="url(#darr)"/>
+
+    <!-- confirming -->
+    <circle cx="390" cy="210" r="7" fill="#a87c1f"/>
+    <rect x="325" y="96" width="140" height="76" rx="8" fill="#fffaf0" stroke="#a87c1f"/>
+    <text x="395" y="114" text-anchor="middle" font-weight="bold" fill="#a87c1f">confirming (yellow)</text>
+    <text x="395" y="130" text-anchor="middle" font-size="9" fill="#5f6f64">globe pin pulses gold:</text>
+    <text x="395" y="143" text-anchor="middle" font-size="9" fill="#5f6f64">the oracle is deciding.</text>
+    <text x="395" y="156" text-anchor="middle" font-size="9" fill="#5f6f64">the alpha window for agents</text>
+    <line x1="393" y1="172" x2="391" y2="200" stroke="#5f6f64" marker-end="url(#darr)"/>
+
+    <!-- down + reprice -->
+    <circle cx="540" cy="210" r="7" fill="#cf3f38"/>
+    <rect x="470" y="236" width="150" height="76" rx="8" fill="#fdf3f2" stroke="#cf3f38"/>
+    <text x="545" y="254" text-anchor="middle" font-weight="bold" fill="#cf3f38">down (red) · reprice</text>
+    <text x="545" y="270" text-anchor="middle" font-size="9" fill="#5f6f64">degradation confirmed,</text>
+    <text x="545" y="283" text-anchor="middle" font-size="9" fill="#5f6f64">rings pulse on the globe,</text>
+    <text x="545" y="296" text-anchor="middle" font-size="9" fill="#5f6f64">LPs rush YES, price spikes</text>
+    <line x1="543" y1="234" x2="541" y2="220" stroke="#5f6f64" marker-end="url(#darr)"/>
+
+    <!-- settle -->
+    <circle cx="700" cy="210" r="7" fill="#0c8a4d"/>
+    <rect x="630" y="96" width="150" height="76" rx="8" fill="#eef7f1" stroke="#0c8a4d"/>
+    <text x="705" y="114" text-anchor="middle" font-weight="bold" fill="#0c8a4d">settles YES · paid</text>
+    <text x="705" y="130" text-anchor="middle" font-size="9" fill="#5f6f64">12 failing readings logged,</text>
+    <text x="705" y="143" text-anchor="middle" font-size="9" fill="#5f6f64">sha256-chained. payout banner:</text>
+    <text x="705" y="156" text-anchor="middle" font-size="9" fill="#5f6f64">"$X paid. no claim filed."</text>
+    <line x1="703" y1="172" x2="701" y2="200" stroke="#5f6f64" marker-end="url(#darr)"/>
+
+    <!-- call -->
+    <circle cx="860" cy="210" r="7" fill="#cf3f38"/>
+    <rect x="790" y="236" width="150" height="76" rx="8" fill="#ffffff" stroke="#e5eae2"/>
+    <text x="865" y="254" text-anchor="middle" font-weight="bold" fill="#16211b">the phone rings</text>
+    <text x="865" y="270" text-anchor="middle" font-size="9" fill="#5f6f64">NVIDIA LLM writes the script,</text>
+    <text x="865" y="283" text-anchor="middle" font-size="9" fill="#5f6f64">Twilio speaks it: "outage</text>
+    <text x="865" y="296" text-anchor="middle" font-size="9" fill="#5f6f64">confirmed, you've been paid"</text>
+    <line x1="863" y1="234" x2="861" y2="220" stroke="#5f6f64" marker-end="url(#darr)"/>
+  </g>
+
+  <text x="940" y="340" text-anchor="end" font-size="9" fill="#5f6f64">meanwhile the real netflix monitor is paused; it resumes green after settlement</text>
+</svg>

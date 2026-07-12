@@ -41,6 +41,27 @@ npm install && npm run dev
 - **Crypto rail (devnet)**: deposit SOL via Phantom; the server verifies the transaction
   on-chain (destination, amount, replay) and credits play-USD at $10K/SOL.
 
+## What this is, in one picture
+
+![Cumulus architecture: real services feed a telemetry oracle, which settles an LMSR market engine, surfaced to humans, agents, and phone alerts](docs/architecture.svg)
+
+How a reading becomes a payout (GitHub renders this live; click to zoom):
+
+```mermaid
+flowchart LR
+    A[real services<br/>AWS · Stripe · Cloudflare · OpenAI<br/>Fortnite · Netflix · Valorant] -->|ping every 15s| B{oracle<br/>debounce}
+    B -->|ok| C[health: up 🟢]
+    B -->|1 fail| D[health: confirming 🟡<br/>the alpha window]
+    D -->|recovers| C
+    D -->|2nd consecutive fail| E[health: down 🔴<br/>counts toward settlement]
+    E -->|trigger met| F[settle YES<br/>sha256-chained evidence]
+    F --> G[winners paid $1/share<br/>instantly, no claim]
+    F --> H[Twilio voice call<br/>script by NVIDIA LLM]
+    C -->|window closes clean| I[settle NO<br/>protection writers keep premium]
+```
+
+![The Netflix demo arc: bet, inject, confirming, down, settle YES, phone call](docs/demo-arc.svg)
+
 ## The Netflix demo arc (one button, start to finish)
 
 Ops console → "simulate outage · netflix". What happens, in order: the globe pin over the

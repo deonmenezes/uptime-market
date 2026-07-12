@@ -9,6 +9,7 @@ export type OracleSource =
   | "epic-feed"
   | "netflix-monitor"
   | "riot-monitor"
+  | "anthropic-monitor"
   | "simulator";
 
 export interface OracleReading {
