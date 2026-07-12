@@ -24,16 +24,16 @@ export default function Board() {
         <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 md:py-14 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
           <div className="animate-fade-in">
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-updim">
-              tradeable downtime protection
+              prediction markets for cloud infrastructure
             </p>
             <h1 className="mt-3 max-w-xl font-display text-4xl font-bold leading-[1.08] tracking-tight text-bone md:text-5xl">
-              SLA credits are toy insurance.{" "}
-              <span className="text-updim">This is the real hedge.</span>
+              Prediction markets for{" "}
+              <span className="text-updim">cloud infrastructure.</span>
             </h1>
             <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-fog">
-              An open market where any company can buy real downtime protection, anyone can sell
-              it, and settlement is a machine reading cloud telemetry. A parametric policy is a
-              prediction market contract. Flip the toggle and watch.
+              Trade real-time probabilities for outages across cloud, APIs, and critical internet
+              services. Prices update from live telemetry and markets settle from oracle evidence.
+              Flip the toggle to hedge or trade.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3">
               <button

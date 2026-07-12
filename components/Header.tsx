@@ -23,7 +23,7 @@ export default function Header() {
             </svg>
             <span className="font-display text-lg font-bold tracking-tight text-bone">cumulus</span>
             <span className="hidden rounded-sm border border-edge2 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-fog sm:block">
-              downtime protection
+              cloud infrastructure markets
             </span>
           </Link>
 

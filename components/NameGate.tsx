@@ -33,9 +33,9 @@ export default function NameGate() {
           <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-fog">cumulus</span>
         </div>
         <h2 className="mt-3 font-display text-2xl font-bold leading-tight text-bone">
-          SLA credits are toy insurance.
+          Prediction markets for
           <br />
-          <span className="text-updim">Buy real downtime protection.</span>
+          <span className="text-updim">cloud infrastructure.</span>
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-fog">
           Pick a handle and get <span className="tabular font-semibold text-bone">$100,000</span> of play
